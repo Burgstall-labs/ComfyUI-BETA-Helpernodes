@@ -178,4 +178,3 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BETACrop": "Video Crop 📼 🅑🅔🅣🅐",       # Use new display name and emojis
     "BETAStitch": "Video Stitch 📼 🅑🅔🅣🅐",   # Use new display name and emojis
 }
---- END OF FILE BETA-cropnodes.py ---
