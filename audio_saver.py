@@ -7,14 +7,13 @@ import folder_paths
 import numpy as np
 import datetime
 
-# (tensor_to_audio function remains unchanged if you have it)
-
 class SaveAudioAdvanced:
     """
     Saves audio data to a specified format (FLAC, WAV, MP3).
-    Handles standard ComfyUI AUDIO tuple (Tensor, int) AND
-    the wrapped dictionary format ({'waveform': Tensor, 'sample_rate': int},)
-    often output by TTS nodes.
+    Handles multiple common AUDIO formats:
+    1. Standard ComfyUI AUDIO tuple: (Tensor, int)
+    2. Wrapped dictionary tuple: ({'waveform': Tensor, 'sample_rate': int},)
+    3. Plain dictionary: {'waveform': Tensor, 'sample_rate': int}
     """
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -54,6 +53,8 @@ class SaveAudioAdvanced:
         valid_input_format = False
 
         # --- INPUT VALIDATION ---
+        input_type_str = str(type(audio)) # For logging
+
         # Style 1: Standard tuple (Tensor, int)
         if isinstance(audio, (tuple, list)) and len(audio) == 2 and \
            isinstance(audio[0], (torch.Tensor, np.ndarray)) and \
@@ -61,32 +62,45 @@ class SaveAudioAdvanced:
             waveform_input = audio[0]
             sample_rate_input = audio[1]
             valid_input_format = True
-            print("[SaveAudioAdvanced] Info: Received standard AUDIO tuple format (Tensor, int).")
+            print("[SaveAudioAdvanced] Info: Detected standard AUDIO tuple format (Tensor, int).")
 
-        # Style 2: Wrapped dictionary ({'waveform': Tensor, 'sample_rate': int}, )
+        # Style 2: Wrapped dictionary tuple ( {'waveform':..., 'sample_rate':...}, )
         elif isinstance(audio, (tuple, list)) and len(audio) == 1 and \
              isinstance(audio[0], dict):
             audio_dict = audio[0]
             if 'waveform' in audio_dict and 'sample_rate' in audio_dict and \
-               isinstance(audio_dict['waveform'], (torch.Tensor, np.ndarray)) and \
-               isinstance(audio_dict['sample_rate'], int):
+               isinstance(audio_dict.get('waveform'), (torch.Tensor, np.ndarray)) and \
+               isinstance(audio_dict.get('sample_rate'), int):
                 waveform_input = audio_dict['waveform']
                 sample_rate_input = audio_dict['sample_rate']
                 valid_input_format = True
-                print("[SaveAudioAdvanced] Info: Received wrapped dictionary AUDIO format ({'waveform':..., 'sample_rate':...}).")
-            else:
-                # Dictionary structure is wrong
-                print(f"[SaveAudioAdvanced] Error: Received a wrapped dictionary, but keys/types are incorrect. Expected {{'waveform': Tensor, 'sample_rate': int}}. Got keys: {list(audio_dict.keys())}")
-                # Optionally print types too for detailed debugging:
-                # print(f"Value types: waveform={type(audio_dict.get('waveform'))}, sample_rate={type(audio_dict.get('sample_rate'))}")
-                return {}
+                print("[SaveAudioAdvanced] Info: Detected wrapped dictionary AUDIO format ({'waveform':..., 'sample_rate':...}, ).")
+            # else: dictionary structure is wrong (handled by final error message)
 
-        # Handle other invalid formats
+        # Style 3: Plain dictionary { 'waveform':..., 'sample_rate':... }
+        elif isinstance(audio, dict):
+            if 'waveform' in audio and 'sample_rate' in audio and \
+               isinstance(audio.get('waveform'), (torch.Tensor, np.ndarray)) and \
+               isinstance(audio.get('sample_rate'), int):
+                waveform_input = audio['waveform']
+                sample_rate_input = audio['sample_rate']
+                valid_input_format = True
+                print("[SaveAudioAdvanced] Info: Detected plain dictionary AUDIO format {'waveform':..., 'sample_rate':...}.")
+            # else: dictionary structure is wrong (handled by final error message)
+
+        # Handle invalid formats / structure errors within dicts
         if not valid_input_format:
-            print(f"[SaveAudioAdvanced] Error: Input 'audio' is not a recognized AUDIO format. Expected (Tensor, int) or ({{\'waveform\': Tensor, \'sample_rate\': int}},). Received type: {type(audio)}")
-            # Help debug by showing the structure if it's a tuple/list
+            error_msg = f"[SaveAudioAdvanced] Error: Input 'audio' is not a recognized AUDIO format."
+            error_msg += f"\n   Expected one of: (Tensor, int) OR ({{'waveform': T/np, 'sample_rate': int}},) OR {{'waveform': T/np, 'sample_rate': int}}"
+            error_msg += f"\n   Received type: {input_type_str}"
+            # Add more detail based on type
             if isinstance(audio, (tuple, list)):
-                 print(f"Received data structure (first element type): {type(audio[0]) if len(audio) > 0 else 'Empty'}")
+                error_msg += f"\n   - Tuple/List length: {len(audio)}"
+                if len(audio) > 0: error_msg += f"\n   - First element type: {type(audio[0])}"
+            elif isinstance(audio, dict):
+                error_msg += f"\n   - Dictionary keys: {list(audio.keys())}"
+                error_msg += f"\n   - Value types: waveform={type(audio.get('waveform'))}, sample_rate={type(audio.get('sample_rate'))}"
+            print(error_msg)
             return {}
 
         # --- Assign validated inputs ---
@@ -101,40 +115,44 @@ class SaveAudioAdvanced:
                  print(f"[SaveAudioAdvanced] Error: Could not convert numpy waveform to tensor: {e}")
                  return {}
         elif isinstance(waveform_input, torch.Tensor):
-            # It's already a tensor
-            waveform = waveform_input
+            waveform = waveform_input # It's already a tensor
         else:
-             # This case should technically be caught by validation, but as a safeguard:
-             print(f"[SaveAudioAdvanced] Error: Internal validation error - waveform is neither Tensor nor ndarray after validation. Type: {type(waveform_input)}")
+             # Should not happen if validation passed, but safeguard.
+             print(f"[SaveAudioAdvanced] Error: Internal validation error - waveform type mismatch. Got {type(waveform_input)}")
              return {}
 
-        # --- REST OF THE SAVING LOGIC (remains the same as the previous version) ---
+        # --- REST OF THE SAVING LOGIC (remains the same) ---
 
-        # Ensure waveform is on CPU before saving
+        # Ensure waveform is on CPU
         if waveform.device != torch.device('cpu'):
             waveform = waveform.cpu()
-            
-        # Added: Squeeze potential extra batch dimension often added by TTS nodes
-        if waveform.ndim == 3 and waveform.shape[0] == 1:
-             print(f"[SaveAudioAdvanced] Info: Input waveform has shape {waveform.shape}. Squeezing batch dimension.")
-             waveform = waveform.squeeze(0) # Shape becomes [C, T] or [T]
 
-        # Ensure correct shape (Channels, Time)
+        # Squeeze potential extra batch dimension often added by TTS nodes
+        if waveform.ndim >= 3 and waveform.shape[0] == 1:
+             print(f"[SaveAudioAdvanced] Info: Input waveform has shape {waveform.shape}. Squeezing batch dimension.")
+             waveform = waveform.squeeze(0) # Shape becomes [C, T] or [T] or [C, T, ...] if >3D initially
+
+        # Ensure correct shape (Channels, Time) - Target is [C, T]
         if waveform.ndim == 1:
             print(f"[SaveAudioAdvanced] Info: Input waveform is 1D (mono). Adding channel dimension.")
             waveform = waveform.unsqueeze(0) # Shape becomes [1, T]
         elif waveform.ndim == 2:
-             # Shape is already [C, T], good to go.
+             # Shape is already [C, T], good.
              pass
-        elif waveform.ndim > 2:
-             # This should have been handled by the squeeze above, but as a fallback
-             print(f"[SaveAudioAdvanced] Warning: Waveform still has more than 2 dimensions ({waveform.shape}) after initial squeeze, attempting general squeeze.")
+        else: # If still > 2D after potential batch squeeze
+             print(f"[SaveAudioAdvanced] Warning: Waveform still has >2 dimensions ({waveform.shape}) after squeeze. Attempting to select first channel pair/slice.")
+             # Example: take first 2 channels if shape is like [C>2, T] -> waveform = waveform[:2, :]
+             # Example: take first element if shape is like [N, C, T] -> waveform = waveform[0] (should have been caught by batch squeeze?)
+             # Let's just try a general squeeze again as a simple fallback, might fail gracefully later if shape is unusable.
+             original_shape = waveform.shape
              waveform = waveform.squeeze()
-             if waveform.ndim == 1: # Check if it became mono
-                  waveform = waveform.unsqueeze(0)
+             if waveform.ndim == 1: waveform = waveform.unsqueeze(0) # Add channel dim if squeeze made it mono
              if waveform.ndim != 2:
-                 print(f"[SaveAudioAdvanced] Error: Could not reshape waveform to [C, T]. Final shape: {waveform.shape}")
+                 print(f"[SaveAudioAdvanced] Error: Could not reduce waveform from {original_shape} to 2 dimensions ([C, T]). Final shape: {waveform.shape}")
                  return {}
+             else:
+                 print(f"[SaveAudioAdvanced] Info: Reduced waveform shape from {original_shape} to {waveform.shape}.")
+
 
         # --- File Naming ---
         full_output_folder, filename, counter, subfolder, filename_prefix_out = \
@@ -159,18 +177,24 @@ class SaveAudioAdvanced:
             if target_encoding == "PCM_S": target_dtype = getattr(torch, f"int{bits_per_sample}", torch.int16)
             elif target_encoding == "PCM_F": target_dtype = getattr(torch, f"float{bits_per_sample}", torch.float32)
 
-            # Data range/type adjustments (simplified - torchaudio handles a lot, but clamping is good)
+            # Data range/type adjustments
             if target_encoding == "PCM_S":
                 if torch.is_floating_point(waveform): waveform = torch.clamp(waveform, -1.0, 1.0) # Torchaudio scales float->int
-                # Torchaudio should handle int->int conversion if needed
             elif target_encoding == "PCM_F":
                 if not torch.is_floating_point(waveform):
                     print("[SaveAudioAdvanced] Warning: Input waveform is not float for WAV FLOAT save. Normalizing.")
-                    if waveform.dtype == torch.int16: waveform = waveform.float() / 32768.0
-                    elif waveform.dtype == torch.int32: waveform = waveform.float() / 2147483648.0
-                    elif waveform.dtype == torch.int64: waveform = waveform.float() / 9223372036854775808.0
-                    elif waveform.dtype == torch.uint8: waveform = (waveform.float() / 127.5) - 1.0
-                    else: max_val = torch.iinfo(waveform.dtype).max; waveform = waveform.float() / max_val
+                    # Simplified normalization (more robust needed for edge cases)
+                    try:
+                        dtype_info = torch.iinfo(waveform.dtype)
+                        max_val = dtype_info.max
+                        min_val = dtype_info.min
+                        if min_val < 0: # Signed int -> normalize to [-1, 1]
+                            waveform = waveform.float() / max(abs(max_val), abs(min_val))
+                        else: # Unsigned int -> normalize to [-1, 1] assuming range starts at 0
+                            waveform = (waveform.float() / max_val) * 2.0 - 1.0
+                    except TypeError: # Handle if dtype isn't int (e.g., already float but wrong type)
+                         print(f"[SaveAudioAdvanced] Warning: Could not get integer info for dtype {waveform.dtype}, attempting simple cast to float.")
+                         waveform = waveform.float() # Attempt direct cast, might not be normalized
                 waveform = torch.clamp(waveform, -1.0, 1.0)
                 if waveform.dtype != target_dtype: waveform = waveform.to(target_dtype)
 
@@ -184,12 +208,15 @@ class SaveAudioAdvanced:
             save_kwargs['compression'] = mp3_bitrate
             if not torch.is_floating_point(waveform):
                  print("[SaveAudioAdvanced] Warning: Input waveform is not float for MP3 save. Normalizing.")
-                 if waveform.dtype == torch.int16: waveform = waveform.float() / 32768.0
-                 elif waveform.dtype == torch.int32: waveform = waveform.float() / 2147483648.0
-                 elif waveform.dtype == torch.int64: waveform = waveform.float() / 9223372036854775808.0
-                 elif waveform.dtype == torch.uint8: waveform = (waveform.float() / 127.5) - 1.0
-                 else: max_val = torch.iinfo(waveform.dtype).max; waveform = waveform.float() / max_val
+                 # Simplified normalization (reuse WAV logic)
+                 try:
+                     dtype_info = torch.iinfo(waveform.dtype)
+                     max_val = dtype_info.max; min_val = dtype_info.min
+                     if min_val < 0: waveform = waveform.float() / max(abs(max_val), abs(min_val))
+                     else: waveform = (waveform.float() / max_val) * 2.0 - 1.0
+                 except TypeError: waveform = waveform.float()
             waveform = torch.clamp(waveform, -1.0, 1.0)
+
 
         # --- Saving ---
         saved = False
@@ -203,7 +230,7 @@ class SaveAudioAdvanced:
             if format == 'mp3' and ('backend' in str(e).lower() or 'encoder' in str(e).lower() or 'lame' in str(e).lower()):
                  print("[SaveAudioAdvanced] MP3 saving failed. Ensure FFmpeg (with libmp3lame) is installed and in your system PATH.")
             import traceback
-            print(traceback.format_exc())
+            print(traceback.format_exc()) # Print full traceback for debugging unexpected errors
 
         # --- Result for UI ---
         if saved:
