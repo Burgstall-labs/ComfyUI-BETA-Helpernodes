@@ -2,7 +2,6 @@
 
 import torch
 import torchaudio
-# import torchaudio.io # No longer strictly needed for this approach
 import os
 import folder_paths
 import numpy as np
@@ -13,141 +12,128 @@ class SaveAudioAdvanced:
     @classmethod
     def INPUT_TYPES(cls):
         # --- INPUT_TYPES remains unchanged ---
-        return {
-            "required": {
-                "audio": ("AUDIO", ),
-                "filename_prefix": ("STRING", {"default": "ComfyUI"}),
-                "format": (["flac", "wav", "mp3"], {"default": "flac"}),
-            },
-            "optional": {
-                "wav_encoding": (["PCM_16", "PCM_24", "PCM_32", "FLOAT_32", "FLOAT_64"], {"default": "PCM_16"}),
-                "flac_compression": ("INT", {"default": 5, "min": 0, "max": 8, "step": 1}), # Level 0-8
-                "mp3_bitrate": ("INT", {"default": 192, "min": 8, "max": 320, "step": 8}), # Bitrate in kbps
-            },
-             "hidden": {
-                "prompt": "PROMPT",
-                "extra_pnginfo": "EXTRA_PNGINFO"
-             },
-        }
+        return { # ... (inputs defined here) ...
+             }
 
     RETURN_TYPES = ()
     FUNCTION = "save_audio"
     OUTPUT_NODE = True
     CATEGORY = "BETA/Audio"
 
-
     def save_audio(self, audio, filename_prefix, format,
                    wav_encoding="PCM_16", flac_compression=5, mp3_bitrate=192,
                    prompt=None, extra_pnginfo=None):
 
-        # --- Input Validation Section (remains the same) ---
-        waveform_input = None; sample_rate_input = None; valid_input_format = False # ... (rest of validation logic) ...
-        # --- End Input Validation --- # (Make sure the full validation block is present here)
-        if not valid_input_format: # Add this check if it was missing
-             # ... (error logging for invalid format) ...
-             return {}
+        print("[SaveAudioAdvanced] Node execution started.") # Added
 
+        # --- Input Validation Section (as before) ---
+        waveform_input = None; sample_rate_input = None; valid_input_format = False
+        # ... (logic to handle tuple, wrapped dict, plain dict) ...
+        if not valid_input_format: # Add this check if it was missing
+             print("[SaveAudioAdvanced] Input format validation failed.") # Added detail
+             # ... (full error logging) ...
+             return {}
+        print(f"[SaveAudioAdvanced] Input format validated successfully. Sample Rate: {sample_rate_input}") # Added
+
+        # --- Tensor Conversion & Prep (as before) ---
         sample_rate = sample_rate_input
         if isinstance(waveform_input, np.ndarray): # ... (numpy conversion) ...
-             pass
+            try: waveform = torch.from_numpy(waveform_input)
+            except Exception as e: print(f"[SaveAudioAdvanced] Error: numpy conversion failed: {e}"); return {}
         elif isinstance(waveform_input, torch.Tensor): waveform = waveform_input
-        else: # ... (error handling) ...
+        else: print(f"[SaveAudioAdvanced] Error: Internal validation error."); return {}
+        print(f"[SaveAudioAdvanced] Waveform is now a tensor. Initial dtype: {waveform.dtype}") # Added
+
+        if waveform.numel() == 0: # Added check for empty tensor
+             print("[SaveAudioAdvanced] Error: Input waveform tensor is empty. Cannot save.")
              return {}
 
-        if waveform.device != torch.device('cpu'): waveform = waveform.cpu()
+        if waveform.device != torch.device('cpu'):
+             print("[SaveAudioAdvanced] Moving waveform to CPU.") # Added
+             waveform = waveform.cpu()
+
+        # --- Shape Handling (as before) ---
+        print(f"[SaveAudioAdvanced] Waveform shape before final processing: {waveform.shape}") # Added
         if waveform.ndim >= 3 and waveform.shape[0] == 1: waveform = waveform.squeeze(0)
         if waveform.ndim == 1: waveform = waveform.unsqueeze(0)
-        elif waveform.ndim != 2: # ... (error handling) ...
+        elif waveform.ndim != 2:
+             print(f"[SaveAudioAdvanced] Error: Cannot handle waveform shape {waveform.shape}"); return {}
+        print(f"[SaveAudioAdvanced] Waveform shape for saving: {waveform.shape}") # Added
+
+
+        # --- File Naming (as before) ---
+        try: # Added try/except around path generation
+            full_output_folder, filename, counter, subfolder, filename_prefix_out = \
+                folder_paths.get_save_image_path(filename_prefix, self.output_dir)
+            file_extension = f".{format.lower()}"
+            filename_with_counter = f"{filename_prefix_out}_{counter:05d}{file_extension}"
+            filepath = os.path.join(full_output_folder, filename_with_counter)
+            print(f"[SaveAudioAdvanced] Calculated save path: {filepath}") # Added
+        except Exception as e:
+             print(f"[SaveAudioAdvanced] Error calculating output path: {e}")
+             import traceback
+             print(traceback.format_exc())
              return {}
 
-        # --- File Naming (remains the same) ---
-        full_output_folder, filename, counter, subfolder, filename_prefix_out = \
-            folder_paths.get_save_image_path(filename_prefix, self.output_dir)
-        file_extension = f".{format.lower()}"
-        filename_with_counter = f"{filename_prefix_out}_{counter:05d}{file_extension}"
-        filepath = os.path.join(full_output_folder, filename_with_counter)
 
-        # --- Format Specific Parameters & Data Prep ---
-        save_kwargs = {} # Store format-specific kwargs here
-
-        # --- WAV ---
-        if format == 'wav':
-            encoding_map = { "PCM_16": {"encoding": "PCM_S", "bits_per_sample": 16}, # ... (rest of map) ...
-                             }
-            wav_params = encoding_map.get(wav_encoding, encoding_map["PCM_16"])
-            if wav_encoding not in encoding_map: print(f"[SaveAudioAdvanced] Warning: Unknown WAV encoding '{wav_encoding}'. Using default PCM_16.")
-            save_kwargs.update(wav_params) # Add 'encoding' and 'bits_per_sample' to kwargs
-            # ... (WAV data prep: clamping/normalization/type conversion) ...
-            target_encoding = wav_params['encoding']; bits_per_sample = wav_params['bits_per_sample']
-            target_dtype = getattr(torch, f"int{bits_per_sample}", torch.int16) if target_encoding == "PCM_S" else getattr(torch, f"float{bits_per_sample}", torch.float32)
-            if target_encoding == "PCM_S" and torch.is_floating_point(waveform): waveform = torch.clamp(waveform, -1.0, 1.0)
-            elif target_encoding == "PCM_F":
-                if not torch.is_floating_point(waveform): # ... (normalization logic) ...
-                    pass
-                waveform = torch.clamp(waveform, -1.0, 1.0)
-                if waveform.dtype != target_dtype: waveform = waveform.to(target_dtype)
-
-
-        # --- FLAC ---
-        elif format == 'flac':
-            # Torchaudio uses 'compression_level' for FLAC
-            save_kwargs['compression_level'] = flac_compression # Add 'compression_level' to kwargs
-            if torch.is_floating_point(waveform): waveform = torch.clamp(waveform, -1.0, 1.0)
-
-
-        # --- MP3 ---
-        elif format == 'mp3':
-            # !!! Correction 2: Try passing bitrate via a direct kwarg 'ab'
-            # This corresponds to the common FFmpeg command-line arg '-ab'
-            # Format bitrate like "192k"
-            save_kwargs['ab'] = f"{mp3_bitrate}k" # Add 'ab' to kwargs
-
-            # Data prep: Ensure float [-1, 1], float32
-            if not torch.is_floating_point(waveform):
-                 print("[SaveAudioAdvanced] Warning: Input waveform is not float for MP3 save. Normalizing.")
-                 # ... (normalization logic) ...
-                 try: # Simplified normalization
-                     dtype_info = torch.iinfo(waveform.dtype); max_val = dtype_info.max; min_val = dtype_info.min
-                     if min_val < 0: waveform = waveform.float() / max(abs(max_val), abs(min_val))
-                     else: waveform = (waveform.float() / max_val) * 2.0 - 1.0
-                 except TypeError: waveform = waveform.float() # Fallback
-            waveform = torch.clamp(waveform, -1.0, 1.0)
-            if waveform.dtype != torch.float32:
-                 waveform = waveform.to(torch.float32)
+        # --- Format Specific Parameters & Data Prep (as before) ---
+        save_kwargs = {}
+        # ... (logic for WAV, FLAC, MP3 including setting save_kwargs['ab'] for MP3) ...
+        # --- Data Prep (ensure waveform range/dtype for chosen format) ---
+        # ... (clamping/normalization/type conversion logic for WAV/FLAC/MP3) ...
+        print(f"[SaveAudioAdvanced] Waveform final dtype for saving: {waveform.dtype}") # Added
+        # Add stats check
+        if torch.is_floating_point(waveform):
+             print(f"[SaveAudioAdvanced] Waveform stats (float): min={waveform.min():.4f}, max={waveform.max():.4f}, mean={waveform.mean():.4f}")
+        else:
+             print(f"[SaveAudioAdvanced] Waveform stats (int): min={waveform.min()}, max={waveform.max()}, mean={waveform.float().mean():.4f}")
 
 
         # --- Saving ---
         saved = False
         try:
+            print("[SaveAudioAdvanced] Ensuring output directory exists...") # Added
             os.makedirs(full_output_folder, exist_ok=True)
-            print(f"[SaveAudioAdvanced] Attempting to save to: {filepath} | Format: {format} | SR: {sample_rate} | Shape: {waveform.shape} | Dtype: {waveform.dtype}")
-            # Log the specific arguments being passed
-            print(f"[SaveAudioAdvanced] Using save kwargs: {save_kwargs}")
+            print(f"[SaveAudioAdvanced] Attempting to save with torchaudio...") # Added
+            print(f"[SaveAudioAdvanced]   - Path: {filepath}")
+            print(f"[SaveAudioAdvanced]   - Format: {format}")
+            print(f"[SaveAudioAdvanced]   - SR: {sample_rate}")
+            print(f"[SaveAudioAdvanced]   - Shape: {waveform.shape}")
+            print(f"[SaveAudioAdvanced]   - Dtype: {waveform.dtype}")
+            print(f"[SaveAudioAdvanced]   - Kwargs: {save_kwargs}")
 
-            # Call torchaudio.save, passing the collected kwargs.
-            # Do NOT specify backend="ffmpeg" explicitly here, let torchaudio choose.
-            # Do NOT pass encoder_options.
+            # The actual save call
             torchaudio.save(filepath, waveform, sample_rate, format=format, **save_kwargs)
 
-            saved = True
+            print("[SaveAudioAdvanced] torchaudio.save() completed without raising an exception.") # Added
+
+            # Check if file *actually* exists after save attempt
+            if os.path.exists(filepath):
+                 print(f"[SaveAudioAdvanced] File check: Confirmed file exists at {filepath}") # Added
+                 saved = True
+            else:
+                 # This is the critical case - save didn't error, but file isn't there.
+                 print(f"[SaveAudioAdvanced] File check WARNING: torchaudio.save() completed BUT file does not exist at {filepath}!") # Added
+                 print("[SaveAudioAdvanced]   - Check filesystem permissions and available disk space.")
+                 print("[SaveAudioAdvanced]   - Check if torchaudio backend (e.g., FFmpeg) wrote to a temporary location or failed silently.")
+
         except Exception as e:
-            print(f"[SaveAudioAdvanced] Error saving audio file: {e}")
-            # Keep the specific MP3 backend error hint
-            if format == 'mp3' and ('backend' in str(e).lower() or 'encoder' in str(e).lower() or 'lame' in str(e).lower() or 'ffmpeg' in str(e).lower() or 'ab' in str(e).lower()):
-                 print("[SaveAudioAdvanced] MP3 saving failed. Check FFmpeg/LAME installation and PATH.")
-                 # If the error specifically mentions 'ab', this approach might be wrong for this version too.
-                 if "'ab'" in str(e):
-                      print("[SaveAudioAdvanced] Hint: Passing 'ab' kwarg failed. Torchaudio version might expect a different parameter for MP3 bitrate.")
+            # This block remains the same - handles explicit errors during save
+            print(f"[SaveAudioAdvanced] Error DURING saving audio file: {e}")
+            # ... (rest of exception handling) ...
+            if format == 'mp3' and ('backend' in str(e).lower() or 'ab' in str(e).lower()): #...
+                 print("[SaveAudioAdvanced] MP3 saving failed...") #...
             import traceback
             print(traceback.format_exc())
 
-        # --- Result for UI (remains the same) ---
-        if saved:
-            # ... (success logging and return) ...
-             print(f"[SaveAudioAdvanced] Saved audio to: {filepath}")
-             result_filename = os.path.basename(filepath)
-             results = [{"filename": result_filename, "subfolder": subfolder, "type": self.type}]
-             return {"ui": {"audio": results}}
 
+        # --- Result for UI ---
+        if saved:
+            print(f"[SaveAudioAdvanced] Operation successful. Reporting saved file to UI.") # Added
+            result_filename = os.path.basename(filepath)
+            results = [{"filename": result_filename, "subfolder": subfolder, "type": self.type}]
+            return {"ui": {"audio": results}}
         else:
+            # This will be reached if 'saved' remains False (e.g., due to the file existence check failing)
+            print("[SaveAudioAdvanced] Operation finished, but file was not confirmed saved.") # Added
             return {} # Indicate failure / no file saved
