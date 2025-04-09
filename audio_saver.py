@@ -11,7 +11,7 @@ class SaveAudioAdvanced:
     # ... (class definition, __init__, INPUT_TYPES remain the same) ...
     @classmethod
     def INPUT_TYPES(cls):
-        # --- INPUT_TYPES definition (ensure it's complete) ---
+       # ... (Make sure the full INPUT_TYPES dictionary is here) ...
         return {
             "required": {
                 "audio": ("AUDIO", ),
@@ -26,6 +26,7 @@ class SaveAudioAdvanced:
              "hidden": { "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO" },
         }
 
+
     RETURN_TYPES = ()
     FUNCTION = "save_audio"
     OUTPUT_NODE = True
@@ -37,132 +38,62 @@ class SaveAudioAdvanced:
 
         print("[SaveAudioAdvanced] Node execution started.")
 
+        # --- ADDED DEBUG PRINT ---
+        print(f"[SaveAudioAdvanced] DEBUG: Received 'audio' type: {type(audio)}")
+        if isinstance(audio, (list, tuple)):
+             print(f"[SaveAudioAdvanced] DEBUG: Is list/tuple. Length: {len(audio)}")
+             if len(audio) > 0: print(f"[SaveAudioAdvanced] DEBUG: First element type: {type(audio[0])}")
+        elif isinstance(audio, dict):
+             print(f"[SaveAudioAdvanced] DEBUG: Is dict. Keys: {list(audio.keys())}")
+             print(f"[SaveAudioAdvanced] DEBUG: Dict value types: waveform={type(audio.get('waveform'))}, sample_rate={type(audio.get('sample_rate'))}")
+        try:
+             # Try to print shape if it looks like the dict format
+             if isinstance(audio, dict) and isinstance(audio.get('waveform'), (torch.Tensor, np.ndarray)):
+                  print(f"[SaveAudioAdvanced] DEBUG: Waveform shape (if tensor/ndarray): {audio['waveform'].shape}")
+             elif isinstance(audio, (list,tuple)) and len(audio) > 0 and isinstance(audio[0], dict) and isinstance(audio[0].get('waveform'), (torch.Tensor, np.ndarray)):
+                  print(f"[SaveAudioAdvanced] DEBUG: Waveform shape (if tensor/ndarray in wrapped dict): {audio[0]['waveform'].shape}")
+             elif isinstance(audio, (list,tuple)) and len(audio) > 0 and isinstance(audio[0], (torch.Tensor, np.ndarray)):
+                 print(f"[SaveAudioAdvanced] DEBUG: Waveform shape (if tensor/ndarray in tuple): {audio[0].shape}")
+             else:
+                  print(f"[SaveAudioAdvanced] DEBUG: Received 'audio' content (partial str): {str(audio)[:500]}")
+        except Exception as e:
+             print(f"[SaveAudioAdvanced] DEBUG: Could not print detailed audio content/shape: {e}")
+        # --- END ADDED DEBUG PRINT ---
+
+
         # --- Input Validation Section (as before) ---
-        # ... (Ensure full validation logic is here) ...
         waveform_input = None; sample_rate_input = None; valid_input_format = False
-        # ... (Logic for tuple, wrapped dict, plain dict) ...
+        input_type_str = str(type(audio)) # Keep this for error logging later
+
+        # Style 1: Standard tuple (Tensor, int)
+        if isinstance(audio, (tuple, list)) and len(audio) == 2 and isinstance(audio[0], (torch.Tensor, np.ndarray)) and isinstance(audio[1], int):
+            waveform_input = audio[0]; sample_rate_input = audio[1]; valid_input_format = True; print("[SaveAudioAdvanced] Info: Detected standard AUDIO tuple format (Tensor, int).")
+
+        # Style 2: Wrapped dictionary tuple ( {'waveform':..., 'sample_rate':...}, )
+        elif isinstance(audio, (tuple, list)) and len(audio) == 1 and isinstance(audio[0], dict):
+            audio_dict = audio[0]
+            if 'waveform' in audio_dict and 'sample_rate' in audio_dict and isinstance(audio_dict.get('waveform'), (torch.Tensor, np.ndarray)) and isinstance(audio_dict.get('sample_rate'), int):
+                waveform_input = audio_dict['waveform']; sample_rate_input = audio_dict['sample_rate']; valid_input_format = True; print("[SaveAudioAdvanced] Info: Detected wrapped dictionary AUDIO format ({'waveform':..., 'sample_rate':...}, ).")
+
+        # Style 3: Plain dictionary { 'waveform':..., 'sample_rate':... }
+        elif isinstance(audio, dict):
+            if 'waveform' in audio and 'sample_rate' in audio and isinstance(audio.get('waveform'), (torch.Tensor, np.ndarray)) and isinstance(audio.get('sample_rate'), int):
+                waveform_input = audio['waveform']; sample_rate_input = audio['sample_rate']; valid_input_format = True; print("[SaveAudioAdvanced] Info: Detected plain dictionary AUDIO format {'waveform':..., 'sample_rate':...}.")
+
+        # Handle invalid formats
         if not valid_input_format:
-             # ... (error logging) ...
-             return {}
+             print("[SaveAudioAdvanced] Input format validation failed.") # This log now comes AFTER the debug prints
+             error_msg = f"[SaveAudioAdvanced] Error: Input 'audio' is not a recognized AUDIO format." # ... (rest of the detailed error message using input_type_str etc.)
+             # Add the debug info to the error message
+             error_msg += f"\n   DEBUG INFO: Type={type(audio)}"
+             if isinstance(audio, (list, tuple)): error_msg += f", Len={len(audio)}"
+             if isinstance(audio, dict): error_msg += f", Keys={list(audio.keys())}"
+             # ... add more detail from debug prints if helpful ...
+             print(error_msg)
+             return {} # Exit point
+
+        # --- IF VALIDATION PASSES, THIS LOG SHOULD APPEAR ---
         print(f"[SaveAudioAdvanced] Input format validated successfully. Sample Rate: {sample_rate_input}")
 
-        # --- Tensor Conversion & Prep (as before) ---
-        sample_rate = sample_rate_input
-        # ... (numpy conversion, CPU move, empty check) ...
-        if isinstance(waveform_input, np.ndarray): # ... (numpy conversion) ...
-            try: waveform = torch.from_numpy(waveform_input)
-            except Exception as e: print(f"[SaveAudioAdvanced] Error: numpy conversion failed: {e}"); return {}
-        elif isinstance(waveform_input, torch.Tensor): waveform = waveform_input
-        else: print(f"[SaveAudioAdvanced] Error: Internal validation error."); return {}
-        if waveform.numel() == 0: print("[SaveAudioAdvanced] Error: Input waveform tensor is empty."); return {}
-        if waveform.device != torch.device('cpu'): waveform = waveform.cpu()
-
-
-        # --- Shape Handling (as before) ---
-        # ... (ndim check, squeeze, unsqueeze) ...
-        if waveform.ndim >= 3 and waveform.shape[0] == 1: waveform = waveform.squeeze(0)
-        if waveform.ndim == 1: waveform = waveform.unsqueeze(0)
-        elif waveform.ndim != 2: print(f"[SaveAudioAdvanced] Error: Cannot handle waveform shape {waveform.shape}"); return {}
-
-
-        # --- File Naming (as before) ---
-        try: # ... (path calculation) ...
-            full_output_folder, filename, counter, subfolder, filename_prefix_out = \
-                folder_paths.get_save_image_path(filename_prefix, self.output_dir)
-            file_extension = f".{format.lower()}"
-            filename_with_counter = f"{filename_prefix_out}_{counter:05d}{file_extension}"
-            filepath = os.path.join(full_output_folder, filename_with_counter)
-            print(f"[SaveAudioAdvanced] Calculated save path: {filepath}")
-        except Exception as e: # ... (error handling) ...
-             return {}
-
-
-        # --- Format Specific Parameters & Data Prep ---
-        save_kwargs = {} # Reset kwargs for each run
-
-        # --- WAV ---
-        if format == 'wav':
-            encoding_map = { "PCM_16": {"encoding": "PCM_S", "bits_per_sample": 16}, # ... (rest of map) ...
-                           } # ... (rest of WAV logic: get params, update save_kwargs, prep data) ...
-            wav_params = encoding_map.get(wav_encoding, encoding_map["PCM_16"]) #...
-            save_kwargs.update(wav_params) #...
-            # ... (WAV data prep: clamping/normalization/type conversion) ...
-
-
-        # --- FLAC ---
-        elif format == 'flac':
-            save_kwargs['compression_level'] = flac_compression
-            # ... (FLAC data prep: clamping) ...
-            if torch.is_floating_point(waveform): waveform = torch.clamp(waveform, -1.0, 1.0)
-
-
-        # --- MP3 ---
-        elif format == 'mp3':
-            # !!! Correction 3: Try passing NO specific kwargs for MP3 !!!
-            # Let torchaudio use the backend's default settings.
-            print("[SaveAudioAdvanced] Info: Passing no specific kwargs for MP3 format, using backend defaults.")
-            # save_kwargs['ab'] = f"{mp3_bitrate}k" # <<< REMOVE/COMMENT THIS LINE
-            # save_kwargs['compression'] = ... # <<< Ensure no other MP3-specific kwargs are added here
-
-            # Data prep still needed: Ensure float [-1, 1], float32
-            if not torch.is_floating_point(waveform):
-                 print("[SaveAudioAdvanced] Warning: Input waveform is not float for MP3 save. Normalizing.")
-                 # ... (normalization logic) ...
-                 try: # Simplified normalization
-                     dtype_info = torch.iinfo(waveform.dtype); max_val = dtype_info.max; min_val = dtype_info.min
-                     if min_val < 0: waveform = waveform.float() / max(abs(max_val), abs(min_val))
-                     else: waveform = (waveform.float() / max_val) * 2.0 - 1.0
-                 except TypeError: waveform = waveform.float() # Fallback
-            waveform = torch.clamp(waveform, -1.0, 1.0)
-            if waveform.dtype != torch.float32:
-                 waveform = waveform.to(torch.float32)
-
-
-        print(f"[SaveAudioAdvanced] Waveform final dtype for saving: {waveform.dtype}")
-        # ... (Waveform stats logging) ...
-
-
-        # --- Saving ---
-        saved = False
-        try:
-            print("[SaveAudioAdvanced] Ensuring output directory exists...")
-            os.makedirs(full_output_folder, exist_ok=True)
-            print(f"[SaveAudioAdvanced] Attempting to save with torchaudio...")
-            # ... (Log path, format, SR, Shape, Dtype) ...
-            print(f"[SaveAudioAdvanced]   - Path: {filepath}")
-            print(f"[SaveAudioAdvanced]   - Format: {format}")
-            print(f"[SaveAudioAdvanced]   - SR: {sample_rate}")
-            print(f"[SaveAudioAdvanced]   - Shape: {waveform.shape}")
-            print(f"[SaveAudioAdvanced]   - Dtype: {waveform.dtype}")
-            print(f"[SaveAudioAdvanced]   - Kwargs: {save_kwargs}") # Should be empty for MP3 now
-
-            # Call torchaudio.save, passing the potentially empty save_kwargs
-            torchaudio.save(filepath, waveform, sample_rate, format=format, **save_kwargs)
-
-            print("[SaveAudioAdvanced] torchaudio.save() completed without raising an exception.") # Added
-
-            # ... (os.path.exists check and associated logging) ...
-            if os.path.exists(filepath):
-                 print(f"[SaveAudioAdvanced] File check: Confirmed file exists at {filepath}") # Added
-                 saved = True
-            else:
-                 print(f"[SaveAudioAdvanced] File check WARNING: torchaudio.save() completed BUT file does not exist at {filepath}!") # Added
-                 # ... (Hints about permissions, disk space, silent backend failure) ...
-
-
-        except Exception as e:
-            print(f"[SaveAudioAdvanced] Error DURING saving audio file: {e}")
-            # ... (Exception handling, traceback) ...
-            import traceback
-            print(traceback.format_exc())
-
-        # --- Result for UI ---
-        if saved:
-             # ... (Success logging and return) ...
-             print(f"[SaveAudioAdvanced] Operation successful. Reporting saved file to UI.")
-             result_filename = os.path.basename(filepath)
-             results = [{"filename": result_filename, "subfolder": subfolder, "type": self.type}]
-             return {"ui": {"audio": results}}
-        else:
-            print("[SaveAudioAdvanced] Operation finished, but file was not confirmed saved.")
-            return {}
+        # ... (Rest of the function as in the previous step - Tensor conversion, shape handling, path calculation, saving logic, etc.) ...
+        # Make sure all the print statements from the previous step are still present below this point.
