@@ -18,7 +18,7 @@ NEW_CLASS_MAPPINGS = {
 }
 
 NEW_DISPLAY_NAME_MAPPINGS = {
-    "SaveAudioAdvanced_BETA": "Save Audio Advanced (BETA)",
+    "SaveAudioAdvanced_BETA": "Save Audio Advanced 📼 🅑🅔🅣🅐",
     # Add display names for other new nodes here
 }
 
