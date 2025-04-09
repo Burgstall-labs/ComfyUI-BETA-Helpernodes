@@ -11,7 +11,8 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Video Crop 📼 🅑🅔🅣🅐**: Crops a specified rectangular region from each frame in a batch of images (video frames). Includes an option to round the crop dimensions up to the nearest multiple.
 *   **Video Stitch 📼 🅑🅔🅣🅐**: Stitches a batch of previously cropped frames back onto a batch of original frames using metadata provided by the Crop node.
 *   **Save Audio Advanced 🔊 🅑🅔🅣🅐**: Saves audio data (received in ComfyUI's standard AUDIO format, or common dictionary formats) to disk as FLAC, WAV, or MP3, with format-specific quality/compression options.
-
+*   **Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐**: Analyzes the last N frames of an image batch for sharpness and clips the batch to include frames up to the sharpest one found (optionally skipping text/blank frames).
+  
 ## Features
 
 *   Simple cropping of video frame batches.
@@ -24,6 +25,10 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   Handles multiple common AUDIO input formats (standard tuple, wrapped dictionary, plain dictionary).
 *   Uses ComfyUI's standard output directory and filename prefixing for saved audio.
 *   Handles potential dimension mismatches and boundary conditions gracefully (for video nodes).
+*   Analyzes image batch sharpness using Laplacian variance.
+*   Clips image batches based on the sharpest frame within a specified trailing window.
+*   Optionally skips frames with significant text-like features or mostly black/white content during sharpness analysis.
+*   Outputs the clipped image batch and the index of the sharpest frame identified.
 
 ## Installation
 
@@ -41,6 +46,7 @@ Alternatively, you can download the `.zip` of this repository and extract the `C
 ## Dependencies
 
 *   Requires a standard ComfyUI installation (PyTorch, Torchaudio).
+*   **OpenCV:** The `Clip to Sharpest Frame` node requires `opencv-python`. Install it via pip: `pip install opencv-python` (or ensure it's in your environment).
 *   **MP3 Saving Requirement:** Saving to `.mp3` requires **FFmpeg** (usually including `libmp3lame`) to be installed on your system and accessible in the system's PATH. WAV and FLAC saving do not require external dependencies beyond torchaudio.
 
 ## Usage
@@ -93,6 +99,24 @@ Saves audio data (waveform and sample rate) to a file in the chosen format.
 **Outputs:**
 
 *   *(Saves file to disk in the ComfyUI `output` directory. Provides UI feedback with filename.)*
+
+### Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐
+
+Analyzes trailing frames in an image batch (e.g., from video) to find the sharpest one, potentially useful for selecting a good frame after motion or transitions. Returns the batch clipped up to that frame.
+
+**Inputs:**
+
+*   `images` (IMAGE): The input batch of images.
+*   `last_n_frames` (INT): How many frames from the *end* of the batch to analyze for sharpness.
+*   `skip_text_frames` (BOOLEAN): If True, attempts to detect and ignore frames containing significant text overlays during sharpness calculation.
+*   `skip_black_white_frames` (BOOLEAN): If True, ignores frames that are mostly black or white during sharpness calculation.
+*   `black_white_threshold` (FLOAT): The threshold (proportion of pixels) used to determine if a frame is mostly black or white.
+*   `show_debug` (BOOLEAN): If True, prints detailed analysis information to the console.
+
+**Outputs:**
+
+*   `clipped_images` (IMAGE): The image batch containing frames from the beginning up to and including the identified sharpest frame.
+*   `sharpest_frame_index` (INT): The index (0-based) within the *original* input batch corresponding to the sharpest frame used for clipping. Returns -1 if no frames were processed (e.g., empty input).
 
 ## Example Workflows
 
