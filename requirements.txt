@@ -1,0 +1,10 @@
+# requirements.txt for ComfyUI-BETA-Helpernodes
+
+# Numpy is often used alongside torch
+numpy
+
+# Required for SharpestFrameClipper node
+opencv-python
+
+# --- External System Dependencies (Not managed by pip) ---
+# ... (Keep the FFmpeg note for MP3 saving) ...
