@@ -2,6 +2,11 @@
 Custom Nodes for ComfyUI - BETA Helpernodes (includes Crop, Audio, Image nodes)
 """
 
+# 3. Define the mappings for the NEW node(s) added in THIS __init__.py
+NEW_CLASS_MAPPINGS = {}
+NEW_DISPLAY_NAME_MAPPINGS = {}
+
+
 # 1. Import mappings from existing node files (Crop, Audio)
 from .BETA_cropnodes import NODE_CLASS_MAPPINGS as CROP_CLASS_MAPPINGS
 from .BETA_cropnodes import NODE_DISPLAY_NAME_MAPPINGS as CROP_DISPLAY_MAPPINGS
@@ -24,15 +29,14 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper node.")
     SharpestFrameClipper = None
 
+# Import and define LoadTextFromIndex before using it
 try:
     from .load_text_node import LoadTextFromIndex
 except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import load text node.")
     LoadTextFromIndex = None
 
-
-
-# Add sharpness clipper and load text from index if imported successfully
+# Add sharpness clipper  if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
     # Applying naming convention: Use scissors emoji ✂️
@@ -42,9 +46,7 @@ if LoadTextFromIndex:
     NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextFromIndex
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextFromIndex_BETA"] = "Load Text from index 📼 🅑🅔🅣🅐"
 
-# 3. Define the mappings for the NEW node(s) added in THIS __init__.py
-NEW_CLASS_MAPPINGS = {}
-NEW_DISPLAY_NAME_MAPPINGS = {}
+
 # 4. Combine the mappings from all sources
 NODE_CLASS_MAPPINGS ={
     **CROP_CLASS_MAPPINGS,
