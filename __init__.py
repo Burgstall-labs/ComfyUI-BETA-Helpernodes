@@ -42,10 +42,10 @@ if SharpestFrameClipper:
     # Applying naming convention: Use scissors emoji ✂️
     NEW_DISPLAY_NAME_MAPPINGS["SharpestFrameClipper_BETA"] = "Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐"
 if LoadTextIncremental:
-    NEW_CLASS_MAPPINGS["LoadTextIncremental_BETA"] = LoadTextIncremental
-    NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally 📼 🅑🅔🅣🅐"
+    NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextIncremental
+    NEW_DISPLAY_NAME_MAPPINGS["LoadTextFromIndex_BETA"] = "Load Text from index 📼 🅑🅔🅣🅐"
 # 4. Combine the mappings from all sources
-NODE_CLASS_MAPPINGS = {
+NODE_CLASS_MAPPINGS ={
     **CROP_CLASS_MAPPINGS,
     **AUDIO_CLASS_MAPPINGS,
     **NEW_CLASS_MAPPINGS # Add mappings defined here
