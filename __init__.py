@@ -18,7 +18,7 @@ except ImportError:
 
 
 # 2. Import the new node class(es) from your new file(s)
-try:
+try: # Import the new class
     from .sharpness_clipper import SharpestFrameClipper
 except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper node.")
@@ -32,11 +32,6 @@ except ImportError:
 
 
 
-# 3. Define the mappings for the NEW node(s) added in THIS __init__.py
-# Ensure the keys are unique across your entire node pack
-NEW_CLASS_MAPPINGS = {}
-NEW_DISPLAY_NAME_MAPPINGS = {}
-
 # Add sharpness clipper and load text from index if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
@@ -47,6 +42,9 @@ if LoadTextFromIndex:
     NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextFromIndex
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextFromIndex_BETA"] = "Load Text from index 📼 🅑🅔🅣🅐"
 
+# 3. Define the mappings for the NEW node(s) added in THIS __init__.py
+NEW_CLASS_MAPPINGS = {}
+NEW_DISPLAY_NAME_MAPPINGS = {}
 # 4. Combine the mappings from all sources
 NODE_CLASS_MAPPINGS ={
     **CROP_CLASS_MAPPINGS,

@@ -1,7 +1,7 @@
 import os
 
-class LoadTextFile:
-    """
+class LoadTextFromIndex:
+      """
     A ComfyUI node that loads a specific text file (.txt) from a specified directory,
     based on a given file index.
     """
@@ -10,8 +10,8 @@ class LoadTextFile:
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {
-            "required": {
+          return {
+              "required": {
                 "directory_path": ("STRING", {"multiline": False, "default": ""}),                
                 "file_index": ("INT", {"default": 0, "min": 0, "step": 1}), # New input
             },
@@ -25,7 +25,7 @@ class LoadTextFile:
     FUNCTION = "load_file"
     CATEGORY = "BETA Nodes"
 
-    def load_file(self, directory_path, file_index, filename_filter=""):
+    def load_file(self, directory_path, file_index, filename_filter = ""):
 
         selected_filename = "N/A"
         full_file_path = "N/A"
@@ -60,10 +60,10 @@ class LoadTextFile:
             print(f"Error reading file '{full_file_path}': {e}")
             return ("", selected_filename)
 
-NODE_CLASS_MAPPINGS = {
-    "LoadTextFile": LoadTextFile
-}
+NODE_CLASS_MAPPINGS = { 
+    "LoadTextFromIndex": LoadTextFromIndex
+ }
 
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "LoadTextFile": "Load Text File 📼 🅑🅔🅣🅐"
+NODE_DISPLAY_NAME_MAPPINGS = { 
+    "LoadTextFromIndex": "Load Text from index 📼 🅑🅔🅣🅐"
 }
