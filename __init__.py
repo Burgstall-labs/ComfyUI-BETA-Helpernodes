@@ -19,16 +19,17 @@ except ImportError:
 
 # 2. Import the new node class(es) from your new file(s)
 try:
-    from .sharpness_clipper import SharpestFrameClipper # Import the new class
+    from .sharpness_clipper import SharpestFrameClipper
 except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper node.")
-    SharpestFrameClipper = None # Define as None if import fails
+    SharpestFrameClipper = None
 
 try:
     from .load_text_node import LoadTextFromIndex
 except ImportError:
-    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import load_text_node.")
-    LoadTextIncremental = None
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import load text node.")
+    LoadTextFromIndex = None
+
 
 
 # 3. Define the mappings for the NEW node(s) added in THIS __init__.py
@@ -36,14 +37,16 @@ except ImportError:
 NEW_CLASS_MAPPINGS = {}
 NEW_DISPLAY_NAME_MAPPINGS = {}
 
-# Add sharpness clipper if imported successfully
+# Add sharpness clipper and load text from index if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
     # Applying naming convention: Use scissors emoji ✂️
     NEW_DISPLAY_NAME_MAPPINGS["SharpestFrameClipper_BETA"] = "Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐"
+
 if LoadTextFromIndex:
     NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextFromIndex
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextFromIndex_BETA"] = "Load Text from index 📼 🅑🅔🅣🅐"
+
 # 4. Combine the mappings from all sources
 NODE_CLASS_MAPPINGS ={
     **CROP_CLASS_MAPPINGS,
