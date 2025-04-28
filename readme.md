@@ -13,6 +13,7 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Save Audio Advanced 🔊 🅑🅔🅣🅐**: Saves audio data (received in ComfyUI's standard AUDIO format, or common dictionary formats) to disk as FLAC, WAV, or MP3, with format-specific quality/compression options.
 *   **Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐**: Analyzes the last N frames of an image batch for sharpness and clips the batch to include frames up to the sharpest one found (optionally skipping text/blank frames). !!!NOTE!!! The logic for this node was borrowed from somewhere on the internet, but as I had no intention of publishing this until it was requested, I didn't bookmark where I got it. If it's yours, please let me know and I will link and credit accordingly.
   
+*   **Load Text Incrementally BETA**: Loads text files (.txt) sequentially from a specified directory. It uses an internal index that increments each time the node is executed, cycling through the available text files. It has an optional input to reset the index, and can filter for specific filenames.
 ## Features
 
 *   Simple cropping of video frame batches.
@@ -117,6 +118,26 @@ Analyzes trailing frames in an image batch (e.g., from video) to find the sharpe
 
 *   `clipped_images` (IMAGE): The image batch containing frames from the beginning up to and including the identified sharpest frame.
 *   `sharpest_frame_index` (INT): The index (0-based) within the *original* input batch corresponding to the sharpest frame used for clipping. Returns -1 if no frames were processed (e.g., empty input).
+
+### Load Text Incrementally 📼 🅑🅔🅣🅐
+
+Loads text files (.txt) sequentially from a specified directory.
+
+**Inputs:**
+
+*   `directory_path` (STRING): The directory path where the text files are located.
+*   `reset_index` (INT, *optional*): An optional input to manually reset the internal index back to the first file (e.g. connect a Primitive node with 0) - set to 0 to reset, 1 to advance without loading.
+*   `filename_filter` (STRING, *optional*): An optional filter to only load files containing this text (e.g. to only load files containing 'prompt_').
+
+**Outputs:**
+
+*   `text` (STRING): The full text content of the loaded text file.
+*   `loaded_filename` (STRING): The filename of the loaded text file.
+*   `current_index` (INT): The index of the currently loaded file.
+
+
+
+
 
 ## Example Workflows
 

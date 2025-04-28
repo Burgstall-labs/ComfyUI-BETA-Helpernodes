@@ -24,6 +24,12 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper node.")
     SharpestFrameClipper = None # Define as None if import fails
 
+try:
+    from .load_text_node import LoadTextIncremental
+except ImportError:
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import load_text_node.")
+    LoadTextIncremental = None
+
 
 # 3. Define the mappings for the NEW node(s) added in THIS __init__.py
 # Ensure the keys are unique across your entire node pack
@@ -35,6 +41,10 @@ if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
     # Applying naming convention: Use scissors emoji ✂️
     NEW_DISPLAY_NAME_MAPPINGS["SharpestFrameClipper_BETA"] = "Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐"
+if LoadTextIncremental:
+    NEW_CLASS_MAPPINGS["LoadTextIncremental_BETA"] = LoadTextIncremental
+    NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally BETA"
+
 
 
 # 4. Combine the mappings from all sources
