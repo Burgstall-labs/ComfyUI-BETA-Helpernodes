@@ -43,9 +43,6 @@ if SharpestFrameClipper:
     NEW_DISPLAY_NAME_MAPPINGS["SharpestFrameClipper_BETA"] = "Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐"
 if LoadTextIncremental:
     NEW_CLASS_MAPPINGS["LoadTextIncremental_BETA"] = LoadTextIncremental
-    NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally BETA"
-
-
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally 📼 🅑🅔🅣🅐"
 # 4. Combine the mappings from all sources
 NODE_CLASS_MAPPINGS = {
