@@ -46,7 +46,7 @@ if LoadTextIncremental:
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally BETA"
 
 
-
+    NEW_DISPLAY_NAME_MAPPINGS["LoadTextIncremental_BETA"] = "Load Text Incrementally 📼 🅑🅔🅣🅐"
 # 4. Combine the mappings from all sources
 NODE_CLASS_MAPPINGS = {
     **CROP_CLASS_MAPPINGS,

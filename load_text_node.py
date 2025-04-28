@@ -29,15 +29,6 @@ class LoadTextIncremental:
     CATEGORY = "BETA Nodes" # Or any category you prefer (e.g., "loaders", "utils")
 
     def load_text(self, directory_path, reset_index=-1, filename_filter=""):
-        if not directory_path or not os.path.isdir(directory_path):
-            print(f"Warning: Directory path '{directory_path}' is invalid or not found.")
-            return ("", "N/A", self.index)
-
-        if reset_index == 0:
-            print(f"Resetting index for directory: {directory_path}")
-            self.index = 0
-        elif reset_index == 1:
-             self.index += 1
 
         cache_key = f"{directory_path}||{filename_filter}"
 
@@ -57,6 +48,18 @@ class LoadTextIncremental:
         else:
              txt_files = self.cached_files[cache_key]
 
+        if not directory_path or not os.path.isdir(directory_path):
+            print(f"Warning: Directory path '{directory_path}' is invalid or not found.")
+            return ("", "N/A", self.index)
+
+        num_files = len(txt_files)
+
+        if reset_index == 0:
+            print(f"Resetting index for directory: {directory_path}")
+            self.index = 0
+        elif reset_index == 1:
+             self.index += 10
+        current_file_index = self.index % num_files
         if not txt_files:
             print(f"Warning: No '.txt' files found in '{directory_path}'" + (f" matching filter '{filename_filter}'." if filename_filter else "."))
             if cache_key in self.cached_files:
@@ -64,8 +67,6 @@ class LoadTextIncremental:
             return ("", "N/A", self.index)
 
         num_files = len(txt_files)
-        current_file_index = self.index % num_files
-        selected_filename = txt_files[current_file_index]
         full_file_path = os.path.join(directory_path, selected_filename)
 
         try:
