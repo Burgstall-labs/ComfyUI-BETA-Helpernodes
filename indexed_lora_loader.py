@@ -24,10 +24,10 @@ class IndexedLoRALoader:
         
         return {
             "required": {
+                "number_of_loras": ("INT", {"default": 5, "min": 1, "max": 20, "step": 1}),
                 "model": ("MODEL",),
                 "clip": ("CLIP",),
                 "index": ("INT", {"default": 1, "min": 1, "max": 20, "step": 1}),
-                "number_of_loras": ("INT", {"default": 5, "min": 1, "max": 20, "step": 1}),
                 "strength_model": ("FLOAT", {"default": 1.0, "min": -100.0, "max": 100.0, "step": 0.01}),
                 "strength_clip": ("FLOAT", {"default": 1.0, "min": -100.0, "max": 100.0, "step": 0.01}),
             },
@@ -39,7 +39,7 @@ class IndexedLoRALoader:
     FUNCTION = "load_indexed_lora"
     CATEGORY = "BETA Nodes"
 
-    def load_indexed_lora(self, model, clip, index, number_of_loras, strength_model, strength_clip, **kwargs):
+    def load_indexed_lora(self, number_of_loras, model, clip, index, strength_model, strength_clip, **kwargs):
         """
         Load a LoRA based on the provided index from the configured stack.
         """
@@ -49,18 +49,17 @@ class IndexedLoRALoader:
             print(f"[IndexedLoRALoader] Warning: Index {index} is out of range (1-{number_of_loras}). Returning original model and clip.")
             return (model, clip, "")
         
-        # Get the LoRA from the specified index position
-        lora_key = f"LoRA #{index}"
-        
-        if lora_key not in kwargs:
-            print(f"[IndexedLoRALoader] Warning: LoRA #{index} slot not configured. Returning original model and clip.")
-            return (model, clip, "")
-        
-        selected_lora = kwargs[lora_key]
-        
-        # Handle "none" selection
-        if not selected_lora or selected_lora == "none":
-            print(f"[IndexedLoRALoader] Info: LoRA #{index} set to 'none'. Returning original model and clip.")
+        # Collect available Loras from kwargs, excluding "none", up to number_of_loras
+        available_loras = []
+        for i in range(1, number_of_loras + 1):
+            lora_key = f"LoRA #{i}"
+            if lora_key in kwargs and kwargs[lora_key] and kwargs[lora_key] != "none":
+                if i == index:  # We found the LoRA at the requested index
+                    selected_lora = kwargs[lora_key]
+                    break
+        else:
+            # If we get here, the index was not found or was set to "none"
+            print(f"[IndexedLoRALoader] Info: LoRA #{index} is not configured or set to 'none'. Returning original model and clip.")
             return (model, clip, "")
         
         try:
