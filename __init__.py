@@ -71,11 +71,11 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 }
 
 # --- Optional Metadata and Exports ---
-# WEB_DIRECTORY = "./js"
+WEB_DIRECTORY = "./js"
 __version__ = "1.3.0" # Incremented version for IndexedLoRALoader
 
 # __all__ is important for ComfyUI to find the node mappings
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
 
 # --- Print confirmation message ---
 print("--------------------------------------")
