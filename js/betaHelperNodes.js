@@ -1,93 +1,91 @@
-import { app } from "/scripts/app.js";
+import { app } from "../../../scripts/app.js";
 
-console.log("[BETA Helper Nodes] betaHelperNodes.js script loaded by browser.");
+console.log("[BETA Helper Nodes] betaHelperNodes.js (v_add_remove) script loaded.");
 
 app.registerExtension({
-    name: "Comfy.BETAHelperNodes.IndexedLoraLoaderLogic", // Unique name for your extension's JS part
+    name: "Comfy.BETAHelperNodes.IndexedLoraLoaderLogic",
     async nodeCreated(node) {
-        // Log for *every* node created to see its type and title
-        // console.log(`[BETA Helper Nodes] nodeCreated event: type = '${node.type}', title = '${node.title}'`);
-
-        // --- WORKAROUND: Check title because node.type might be empty for some custom nodes ---
-        // Make sure this title string EXACTLY matches your node's display name
-        const expectedNodeTitle = "Indexed LoRA Loader 🎯 🅑🅔🅣🅐"; // Update if your display name is different!
+        const expectedNodeTitle = "Indexed LoRA Loader 🎯 🅑🅔🅣🅐"; // Ensure this matches your node's display name
 
         if (node.title === expectedNodeTitle) {
-            console.log(`[BETA Helper Nodes] MATCHED node by TITLE: '${node.title}' (type was '${node.type}')`, node);
+            console.log(`[BETA Helper Nodes] MATCHED node by TITLE: '${node.title}'`);
 
-            const numberWidget = node.widgets.find(w => w.name === "number_of_loras");
-            const indexWidget = node.widgets.find(w => w.name === "index");
-
-            if (!numberWidget) {
-                console.error("[BETA Helper Nodes] CRITICAL: Could not find 'number_of_loras' widget for node: " + node.title);
-                return;
-            }
-            // console.log("[BETA Helper Nodes] Found 'number_of_loras' widget:", numberWidget);
-
-            if (!indexWidget) {
-                console.warn("[BETA Helper Nodes] Could not find 'index' widget for node: " + node.title + ". Index max won't be updated dynamically.");
-            } else {
-                // console.log("[BETA Helper Nodes] Found 'index' widget:", indexWidget);
+            // Initialize properties object if it doesn't exist (for storing widget values)
+            if (!node.properties) {
+                node.properties = {};
             }
 
-            const updateLoraWidgetsVisibility = () => {
-                const numLorasRaw = numberWidget.value;
-                const numLorasParsed = parseInt(numLorasRaw, 10);
-                // Ensure validNumLoras is at least 1, default to 1 if parsing fails or value is < 1
-                const validNumLoras = isNaN(numLorasParsed) || numLorasParsed < 1 ? 1 : numLorasParsed;
+            const updateDynamicWidgets = () => {
+                const numLorasWidget = node.widgets.find(w => w.name === "number_of_loras");
+                if (!numLorasWidget) {
+                    console.error("[BETA Helper Nodes] 'number_of_loras' widget not found!");
+                    return;
+                }
+                const numLoras = parseInt(numLorasWidget.value, 10) || 1; // Default to 1 if NaN or < 1
 
-                // console.log(`[BETA Helper Nodes] updateLoraWidgetsVisibility called. number_of_loras = ${validNumLoras} (raw input: ${numLorasRaw})`);
+                const indexWidget = node.widgets.find(w => w.name === "index");
 
-                for (let i = 1; i <= 20; i++) { // Assuming max 20 lora slots as per Python
-                    const loraWidgetName = `lora_${i}`;
-                    const loraWidget = node.widgets.find(w => w.name === loraWidgetName);
-
+                // --- 1. Save current values of all dynamic and related static widgets ---
+                // We only need to save lora_X values, as others are part of required_inputs or static optionals
+                for (let i = 1; i <= 20; i++) { // Max possible loras
+                    const loraWidget = node.widgets.find(w => w.name === `lora_${i}`);
                     if (loraWidget) {
-                        let elementToHide = null;
-                        // Try to find the most common parent elements that control widget visibility
-                        if (loraWidget.inputEl) {
-                            elementToHide = loraWidget.inputEl.closest("tr");
-                            if (!elementToHide) elementToHide = loraWidget.inputEl.closest(".widget"); // Common general wrapper
-                            if (!elementToHide) elementToHide = loraWidget.inputEl.closest("div"); // Fallback to any div
-                            // If it's a combo box, its main input might be nested.
-                            // The 'comfy-combo-wrapper' is often a good target if 'tr' or '.widget' isn't the direct parent of the wrapper.
-                            if (loraWidget.inputEl.parentElement?.classList.contains("comfy-combo-wrapper")) {
-                                let comboWrapper = loraWidget.inputEl.parentElement;
-                                elementToHide = comboWrapper.closest("tr") || comboWrapper.closest(".widget") || comboWrapper;
-                            }
-                        } else if (loraWidget.canvas) { // For widgets that are primarily a canvas
-                            elementToHide = loraWidget.canvas.closest("tr") || loraWidget.canvas.closest(".widget");
-                        } else if (loraWidget.el) { // Some widgets might use 'el' for their root DOM element
-                             elementToHide = loraWidget.el.closest("tr") || loraWidget.el.closest(".widget") || loraWidget.el;
-                        }
+                        node.properties[`lora_${i}`] = loraWidget.value;
+                    }
+                }
+                if (indexWidget) { // Save index widget value
+                    node.properties["index"] = indexWidget.value;
+                }
 
 
-                        if (elementToHide) {
-                            const shouldBeVisible = (i <= validNumLoras);
-                            elementToHide.style.display = shouldBeVisible ? "" : "none";
-                            // console.log(`[BETA Helper Nodes] Widget ${loraWidgetName} (${elementToHide.tagName}.${elementToHide.className}) display set to: ${shouldBeVisible ? "visible" : "none"}`);
-                        } else {
-                            console.warn(`[BETA Helper Nodes] Could not find suitable DOM element to hide for widget: ${loraWidgetName}. Widget object:`, loraWidget);
-                        }
+                // --- 2. Remove existing lora_X widgets ---
+                // Keep track of widgets that are NOT lora_X to re-add them in order
+                const staticWidgets = node.widgets.filter(w => !w.name.startsWith("lora_"));
+                node.widgets = [...staticWidgets]; // Temporarily set widgets to non-lora ones
+
+                // --- 3. Re-add lora_X widgets based on numLoras ---
+                const loraListSourceWidget = staticWidgets.find(w => w.name === "lora_1_source_for_options"); // A bit of a hack: assume lora_1 (if it existed) had the list
+                                                                                                           // Or get it from the first lora_X if any exist before removal
+                let loraOptionsList = ["none"]; // Default if no source found
+                if(node.widgets_values && node.widgets_values["lora_1"]){ // if lora_1 has values
+                    loraOptionsList = node.widgets.find(w=>w.name === "lora_1")?.options?.values || node.widgets_values["lora_1"];
+                } else { // Fallback: try to get from python definition if possible (hard without direct access here)
+                    // This is tricky; usually, the Python side defines this.
+                    // For now, we'll use a simple ["none"] or try to grab from an existing lora_1 if it was there.
+                    // Best practice: the Python node should provide these options if they can change.
+                    // If your lora list is static from Python, this part is simpler.
+                    // We assume the options list is the same for all lora_X dropdowns.
+                    const anExistingLoraWidget = node.widgets.find(w => w.name === "lora_1" && w.options && w.options.values);
+                    if (anExistingLoraWidget) {
+                        loraOptionsList = anExistingLoraWidget.options.values;
                     }
                 }
 
-                // Update the 'index' widget's max value and current value if needed
-                if (indexWidget) {
-                    const newMax = Math.max(1, validNumLoras); // Max should be at least 1
 
-                    if (indexWidget.options.max !== newMax) {
-                        indexWidget.options.max = newMax;
-                        // console.log(`[BETA Helper Nodes] Index widget options.max updated to: ${newMax}`);
-                    }
-                    // Also update the input element's max attribute if it exists (for browser validation)
-                    if (indexWidget.inputEl && typeof indexWidget.inputEl.max !== 'undefined' && indexWidget.inputEl.max !== newMax.toString()) {
+                for (let i = 1; i <= numLoras; i++) {
+                    const loraWidgetName = `lora_${i}`;
+                    const savedValue = node.properties[loraWidgetName];
+                    const defaultValue = loraOptionsList.includes(savedValue) ? savedValue : loraOptionsList[0] || "none";
+
+                    node.addWidget(
+                        "combo",
+                        loraWidgetName,
+                        defaultValue,
+                        (value) => { node.properties[loraWidgetName] = value; }, // Save on change
+                        { values: loraOptionsList }
+                    );
+                }
+
+                // --- 4. Update Index Widget Max ---
+                if (indexWidget) {
+                    const newMax = Math.max(1, numLoras);
+                    indexWidget.options.max = newMax;
+                    if (indexWidget.inputEl && typeof indexWidget.inputEl.max !== 'undefined') {
                         indexWidget.inputEl.max = newMax.toString();
                     }
-
                     let currentIndexValue = parseInt(indexWidget.value, 10);
                     const minVal = parseInt(indexWidget.options.min || 1, 10);
-                    if(isNaN(currentIndexValue)) currentIndexValue = minVal; // Handle if current value is NaN
+                    if(isNaN(currentIndexValue)) currentIndexValue = minVal;
 
                     let clampedIndexValue = currentIndexValue;
                     if (clampedIndexValue > newMax) clampedIndexValue = newMax;
@@ -95,31 +93,53 @@ app.registerExtension({
 
                     if (indexWidget.value !== clampedIndexValue) {
                         indexWidget.value = clampedIndexValue;
-                        // console.log(`[BETA Helper Nodes] Index widget value clamped/set to: ${clampedIndexValue}`);
                     }
                 }
-                node.computeSize(); // Important to tell LiteGraph to re-calculate the node's dimensions
-                node.setDirtyCanvas(true, true); // Force a redraw of the canvas
+
+                // --- 5. Finalize ---
+                node.computeSize();
+                node.setDirtyCanvas(true, true);
             };
 
-            // console.log("[BETA Helper Nodes] Calling updateLoraWidgetsVisibility initially for node: " + node.title);
-            // A small timeout can sometimes help ensure widgets are fully initialized in the DOM before styling.
-            setTimeout(updateLoraWidgetsVisibility, 100); // Increased timeout slightly
+            // Initial setup and when number_of_loras changes
+            const numLorasWidget = node.widgets.find(w => w.name === "number_of_loras");
+            if (numLorasWidget) {
+                const originalCallback = numLorasWidget.callback;
+                numLorasWidget.callback = (value) => {
+                    numLorasWidget.value = parseInt(value, 10); // Ensure internal value is number
+                    if (originalCallback) originalCallback.call(numLorasWidget, numLorasWidget.value);
+                    updateDynamicWidgets();
+                };
+            }
 
-            // Store original callback if it exists, then wrap it
-            const originalNumberCallback = numberWidget.callback;
-            numberWidget.callback = (value) => {
-                // console.log(`[BETA Helper Nodes] 'number_of_loras' widget callback triggered for node '${node.title}'. New raw value:`, value);
-                // It's good practice to ensure the widget's internal value is updated if ComfyUI doesn't do it before the callback
-                numberWidget.value = parseInt(value, 10); // Update widget's value, parseInt here
-                if (isNaN(numberWidget.value)) numberWidget.value = 1; // Fallback if parsing fails
-
-                if (originalNumberCallback) {
-                    originalNumberCallback.call(numberWidget, numberWidget.value); // Pass the parsed value
+            // Handle Graph/Node Deserialization (loading a saved workflow)
+            const onNodeConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onNodeConfigure) onNodeConfigure.apply(this, arguments);
+                if (this.properties) { // Restore saved properties
+                    // Values for lora_X might be in widgets_values if saved that way
+                    if (info.widgets_values) {
+                        for (let i = 1; i <= 20; i++) {
+                            const loraWidgetName = `lora_${i}`;
+                            if (info.widgets_values[loraWidgetName] !== undefined) {
+                                this.properties[loraWidgetName] = info.widgets_values[loraWidgetName];
+                            }
+                        }
+                    }
                 }
-                updateLoraWidgetsVisibility();
+                // console.log("[BETA Helper Nodes] onConfigure, properties:", this.properties);
+                setTimeout(updateDynamicWidgets, 50); // Update widgets after configuration
             };
-            // console.log("[BETA Helper Nodes] Callback attached to 'number_of_loras' widget for node: " + node.title);
+            
+            // Save widget values correctly for serialization
+            // ComfyUI usually serializes widget.value from node.widgets_values automatically
+            // But we need to ensure our node.properties are also considered if they hold the true state.
+            // The Bjornulf node does more explicit properties saving onSerialize.
+            // For now, let's rely on ComfyUI's default widget_values serialization
+            // and restore from node.properties if widgets_values aren't there on load.
+
+            // Initial call
+            setTimeout(updateDynamicWidgets, 100); // Delay slightly for everything to be ready
         }
     }
 });
