@@ -36,6 +36,13 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import load text node.")
     LoadTextFromIndex = None
 
+# Import the IndexedLoRALoader node
+try:
+    from .indexed_lora_loader import IndexedLoRALoader
+except ImportError:
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import indexed lora loader node.")
+    IndexedLoRALoader = None
+
 # Add sharpness clipper  if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
@@ -45,6 +52,10 @@ if SharpestFrameClipper:
 if LoadTextFromIndex:
     NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextFromIndex
     NEW_DISPLAY_NAME_MAPPINGS["LoadTextFromIndex_BETA"] = "Load Text from index 📼 🅑🅔🅣🅐"
+
+if IndexedLoRALoader:
+    NEW_CLASS_MAPPINGS["IndexedLoRALoader_BETA"] = IndexedLoRALoader
+    NEW_DISPLAY_NAME_MAPPINGS["IndexedLoRALoader_BETA"] = "Indexed LoRA Loader 🎯 🅑🅔🅣🅐"
 
 
 # 4. Combine the mappings from all sources
@@ -61,7 +72,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 
 # --- Optional Metadata and Exports ---
 # WEB_DIRECTORY = "./js"
-__version__ = "1.2.0" # Incremented version
+__version__ = "1.3.0" # Incremented version for IndexedLoRALoader
 
 # __all__ is important for ComfyUI to find the node mappings
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

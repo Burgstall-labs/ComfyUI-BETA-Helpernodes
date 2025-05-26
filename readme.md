@@ -14,22 +14,44 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐**: Analyzes the last N frames of an image batch for sharpness and clips the batch to include frames up to the sharpest one found (optionally skipping text/blank frames). !!!NOTE!!! The logic for this node was borrowed from somewhere on the internet, but as I had no intention of publishing this until it was requested, I didn't bookmark where I got it. If it's yours, please let me know and I will link and credit accordingly.
   
 *   **Load Text from index 📼 🅑🅔🅣🅐**: Loads a text file (.txt) from a specified directory based on its index in the sorted list of files.
+*   **Indexed LoRA Loader 🎯 🅑🅔🅣🅐**: Loads a specific LoRA from a configurable stack based on an index input. Automatically extracts trigger words from LoRA filenames and applies the LoRA to model and CLIP.
 ## Features
 
-*   Simple cropping of video frame batches.
+### Video Crop 📼 🅑🅔🅣🅐
+*   Simple cropping of video frame batches with precise coordinate control
 *   Ability to round crop width and height up to the nearest multiple (e.g., 8, 16, 32)
-*   Outputs crop information (`BETA_CROPINFO`) needed for precise stitching.
-*   Stitches processed crops back into their original positions on the full frames.
-*   Advanced audio saving to **FLAC**, **WAV**, or **MP3**.
-*   Configurable options for WAV encoding (bit depth) and FLAC compression level.
-*   MP3 saving uses the backend's default bitrate settings (user bitrate input currently ignored due to backend API limitations). *[Note: We may revisit MP3 bitrate control if torchaudio API stabilizes]*
-*   Handles multiple common AUDIO input formats (standard tuple, wrapped dictionary, plain dictionary).
-*   Uses ComfyUI's standard output directory and filename prefixing for saved audio.
-*   Handles potential dimension mismatches and boundary conditions gracefully (for video nodes).
-*   Analyzes image batch sharpness using Laplacian variance.
-*   Clips image batches based on the sharpest frame within a specified trailing window.
-*   Optionally skips frames with significant text-like features or mostly black/white content during sharpness analysis.
-*   Outputs the clipped image batch and the index of the sharpest frame identified.
+*   Outputs crop information (`BETA_CROPINFO`) needed for precise stitching
+*   Handles potential dimension mismatches and boundary conditions gracefully
+
+### Video Stitch 📼 🅑🅔🅣🅐
+*   Stitches processed crops back into their original positions on the full frames
+*   Uses metadata from Video Crop node for pixel-perfect alignment
+*   Handles frame count mismatches between original and cropped batches
+
+### Save Audio Advanced 🔊 🅑🅔🅣🅐
+*   Advanced audio saving to **FLAC**, **WAV**, or **MP3** formats
+*   Configurable options for WAV encoding (bit depth) and FLAC compression level
+*   MP3 saving uses the backend's default bitrate settings (user bitrate input currently ignored due to backend API limitations)
+*   Handles multiple common AUDIO input formats (standard tuple, wrapped dictionary, plain dictionary)
+*   Uses ComfyUI's standard output directory and filename prefixing for saved audio
+
+### Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐
+*   Analyzes image batch sharpness using Laplacian variance
+*   Clips image batches based on the sharpest frame within a specified trailing window
+*   Optionally skips frames with significant text-like features or mostly black/white content during sharpness analysis
+*   Outputs the clipped image batch and the index of the sharpest frame identified
+
+### Load Text from Index 📼 🅑🅔🅣🅐
+*   Loads text files from a directory based on file index
+*   Optional filename filtering for selective file loading
+*   Handles .txt file sorting and indexing automatically
+
+### Indexed LoRA Loader 🎯 🅑🅔🅣🅐
+*   Loads specific LoRAs from a configurable stack (up to 20 LoRAs) based on index input
+*   Automatically extracts trigger words from LoRA filenames (text before "_lora")
+*   Applies LoRA to both model and CLIP with configurable strength values
+*   Robust error handling with fallback to original model/clip if LoRA fails to load
+*   Support for "none" selection to skip LoRA loading
 
 ## Installation
 
@@ -132,6 +154,33 @@ Loads a text file (.txt) from a specified directory based on the provided file i
 
 *   `text` (STRING): The full text content of the loaded text file.
 *   `loaded_filename` (STRING): The filename of the loaded text file.
+
+### Indexed LoRA Loader 🎯 🅑🅔🅣🅐
+
+Loads a specific LoRA from a configurable stack based on an index input. Perfect for batch processing or iterating through different LoRAs systematically.
+
+**Inputs:**
+
+*   `model` (MODEL): The base model to apply the LoRA to.
+*   `clip` (CLIP): The CLIP model to apply the LoRA to.
+*   `index` (INT): The index (1-based) of the LoRA to load from your configured stack.
+*   `number_of_loras` (INT): How many LoRA slots to make available (1-20). Only slots 1 through this number will be visible.
+*   `strength_model` (FLOAT): The strength to apply the LoRA to the model (-100.0 to 100.0, default 1.0).
+*   `strength_clip` (FLOAT): The strength to apply the LoRA to the CLIP (-100.0 to 100.0, default 1.0).
+*   `LoRA #1` through `LoRA #20` (STRING, *optional*): The LoRA files to assign to each slot. Only slots up to `number_of_loras` are shown.
+
+**Outputs:**
+
+*   `model` (MODEL): The model with the selected LoRA applied.
+*   `clip` (CLIP): The CLIP with the selected LoRA applied.
+*   `trigger_word` (STRING): The extracted trigger word from the LoRA filename (text before "_lora").
+
+**Usage Notes:**
+
+*   Set `number_of_loras` to control how many LoRA slots appear in the interface.
+*   LoRA filenames like "Snorricam-3434_lora.safetensors" will extract "Snorricam-3434" as the trigger word.
+*   If the specified index is out of range or the LoRA fails to load, the original model and clip are returned unchanged.
+*   Set any LoRA slot to "none" to skip loading for that position.
 
 
 
