@@ -1,62 +1,95 @@
 import { app } from "/scripts/app.js";
 
+console.log("[BETA Helper Nodes] betaHelperNodes.js script loaded by browser.");
+
 app.registerExtension({
-    name: "Comfy.BETAHelperNodes.IndexedLoraLoader",
+    name: "Comfy.BETAHelperNodes.IndexedLoraLoader", // Unique name for your extension's JS part
     async nodeCreated(node) {
-        if (node.type === "IndexedLoRALoader_BETA") { // Make sure this matches your NODE_CLASS_MAPPINGS key
+        // Log every node creation to see if this function is even being called
+        // console.log(`[BETA Helper Nodes] nodeCreated: type = ${node.type}, title = ${node.title}`);
+
+        if (node.type === "IndexedLoRALoader_BETA") { // <<< CRITICAL: Must match NODE_CLASS_MAPPINGS key
+            console.log("[BETA Helper Nodes] MATCHED IndexedLoRALoader_BETA node:", node);
+
             const numberWidget = node.widgets.find(w => w.name === "number_of_loras");
-            const indexWidget = node.widgets.find(w => w.name === "index"); // Get the index widget
+            const indexWidget = node.widgets.find(w => w.name === "index");
 
             if (!numberWidget) {
-                console.error("Could not find number_of_loras widget for IndexedLoRALoader_BETA");
+                console.error("[BETA Helper Nodes] CRITICAL: Could not find 'number_of_loras' widget.");
                 return;
+            }
+            console.log("[BETA Helper Nodes] Found 'number_of_loras' widget:", numberWidget);
+
+            if (!indexWidget) {
+                console.warn("[BETA Helper Nodes] Could not find 'index' widget. Index max won't be updated.");
+            } else {
+                console.log("[BETA Helper Nodes] Found 'index' widget:", indexWidget);
             }
 
             const updateLoraWidgetsVisibility = () => {
-                const numLoras = numberWidget.value;
+                const numLoras = parseInt(numberWidget.value, 10);
+                console.log(`[BETA Helper Nodes] updateLoraWidgetsVisibility called. number_of_loras = ${numLoras}`);
 
-                // Update visibility of lora_X widgets
-                for (let i = 1; i <= 20; i++) { // Assuming max 20 lora slots as per your Python
-                    const loraWidget = node.widgets.find(w => w.name === `lora_${i}`);
+                for (let i = 1; i <= 20; i++) { // Assuming max 20 lora slots
+                    const loraWidgetName = `lora_${i}`;
+                    const loraWidget = node.widgets.find(w => w.name === loraWidgetName);
                     if (loraWidget) {
-                        loraWidget.inputEl.style.display = (i <= numLoras) ? "" : "none";
-                        // For some widget types, you might need to hide the parent or a different element
-                        // If the above doesn't work, try:
-                        // loraWidget.inputEl.parentElement.parentElement.style.display = (i <= numLoras) ? "" : "none";
-                        // or inspect the DOM to find the correct element to hide.
+                        // Try to find the outermost element of the widget for hiding
+                        let elementToHide = loraWidget.inputEl; // Start with inputEl
+                        if (elementToHide && elementToHide.parentElement && elementToHide.parentElement.classList.contains("comfy-combo-wrapper")) {
+                            elementToHide = elementToHide.parentElement; // For combo, hide wrapper
+                        }
+                        if (elementToHide && elementToHide.parentElement && elementToHide.parentElement.tagName === "TR") {
+                            elementToHide = elementToHide.parentElement; // Often widgets are in table rows
+                        } else if (elementToHide && elementToHide.closest) { // General fallback to find a TR or a common widget wrapper
+                             let commonParent = elementToHide.closest(".widget") || elementToHide.closest("tr");
+                             if(commonParent) elementToHide = commonParent;
+                        }
+
+
+                        if (elementToHide) {
+                            elementToHide.style.display = (i <= numLoras) ? "" : "none";
+                            // console.log(`[BETA Helper Nodes] Widget ${loraWidgetName} display set to: ${(i <= numLoras) ? "visible" : "none"}`);
+                        } else {
+                            console.warn(`[BETA Helper Nodes] Could not find suitable element to hide for ${loraWidgetName}`);
+                        }
+                    } else {
+                        // console.warn(`[BETA Helper Nodes] Widget ${loraWidgetName} not found.`);
                     }
                 }
 
-                // Update the max value of the index widget
                 if (indexWidget) {
-                    indexWidget.options.max = numLoras;
-                    // If the current index value is greater than the new max, clamp it
-                    if (indexWidget.value > numLoras) {
-                        indexWidget.value = numLoras;
+                    const currentMax = parseInt(indexWidget.options?.max || indexWidget.inputEl?.max || numLoras);
+                    if (currentMax !== numLoras) {
+                         indexWidget.options.max = numLoras;
+                         if (indexWidget.inputEl) indexWidget.inputEl.max = numLoras;
+                         console.log(`[BETA Helper Nodes] Index widget max updated to: ${numLoras}`);
                     }
-                    // Force redraw/update of the widget if necessary (might not be needed for simple max change)
-                    if (indexWidget.inputEl.max !== undefined) {
-                         indexWidget.inputEl.max = numLoras;
+                    if (indexWidget.value > numLoras) {
+                        indexWidget.value = numLoras; // Clamp current value
+                        console.log(`[BETA Helper Nodes] Index widget value clamped to: ${numLoras}`);
                     }
                 }
+                node.computeSize(); // Tell ComfyUI to recompute the node's size
+                app.graph.setDirtyCanvas(true, true); // Redraw the graph
             };
 
-            // Initial call to set visibility based on default value
+            // Initial call
+            console.log("[BETA Helper Nodes] Calling updateLoraWidgetsVisibility initially.");
             updateLoraWidgetsVisibility();
 
-            // Add listener for changes to number_of_loras
+            // Store original callback if it exists, then wrap it
+            const originalNumberCallback = numberWidget.callback;
             numberWidget.callback = (value) => {
-                numberWidget.value = parseInt(value, 10); // Ensure it's an integer
+                console.log("[BETA Helper Nodes] 'number_of_loras' widget callback triggered. New value:", value);
+                if (originalNumberCallback) {
+                    originalNumberCallback.call(numberWidget, value);
+                }
+                // Ensure numberWidget.value is updated before calling our logic if ComfyUI doesn't do it immediately
+                // numberWidget.value = parseInt(value,10); // Usually ComfyUI handles this.
                 updateLoraWidgetsVisibility();
-                // If you have app.graph.setDirtyCanvas, you might call it here if UI doesn't fully refresh
-                // app.graph.setDirtyCanvas(true, true);
             };
-
-            // Optional: If you want the index widget to also trigger a graph re-run on change (like other inputs)
-            // indexWidget.callback = (value) => {
-            //    indexWidget.value = parseInt(value, 10);
-            //    // app.graph.setDirtyCanvas(true, true); // If needed
-            // };
+            console.log("[BETA Helper Nodes] Callback attached to 'number_of_loras' widget.");
         }
     }
 });
