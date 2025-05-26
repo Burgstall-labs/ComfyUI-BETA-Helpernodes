@@ -106,5 +106,5 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "IndexedLoRALoader_BETA": "Indexed LoRA Loader 🎯"
+    "IndexedLoRALoader_BETA": "Indexed LoRA Loader 🎯 🅑🅔🅣🅐"
 }
