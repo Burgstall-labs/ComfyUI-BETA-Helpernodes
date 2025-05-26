@@ -49,18 +49,22 @@ class IndexedLoRALoader:
             print(f"[IndexedLoRALoader] Warning: Index {index} is out of range (1-{number_of_loras}). Returning original model and clip.")
             return (model, clip, "")
         
-        # Collect available Loras from kwargs, excluding "none", up to number_of_loras
-        available_loras = []
-        for i in range(1, number_of_loras + 1):
-            lora_key = f"LoRA #{i}"
-            if lora_key in kwargs and kwargs[lora_key] and kwargs[lora_key] != "none":
-                if i == index:  # We found the LoRA at the requested index
-                    selected_lora = kwargs[lora_key]
-                    break
-        else:
-            # If we get here, the index was not found or was set to "none"
+        # Collect available LoRAs from kwargs, excluding "none" - following the same pattern as RandomLoraSelector
+        # This ensures ComfyUI only shows the fields that are actually being accessed
+        available_loras = [
+            kwargs[f"LoRA #{i}"] for i in range(1, number_of_loras + 1) 
+            if f"LoRA #{i}" in kwargs and kwargs[f"LoRA #{i}"] and kwargs[f"LoRA #{i}"] != "none"
+        ]
+        
+        # Get the specific LoRA at the requested index
+        lora_key = f"LoRA #{index}"
+        if (lora_key not in kwargs or 
+            not kwargs[lora_key] or 
+            kwargs[lora_key] == "none"):
             print(f"[IndexedLoRALoader] Info: LoRA #{index} is not configured or set to 'none'. Returning original model and clip.")
             return (model, clip, "")
+        
+        selected_lora = kwargs[lora_key]
         
         try:
             # Get the full path to the selected LoRA
