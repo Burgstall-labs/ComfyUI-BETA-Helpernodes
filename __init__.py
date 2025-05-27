@@ -43,6 +43,18 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import indexed lora loader node.")
     IndexedLoRALoader = None
 
+# Import the TextLineCount node
+try:
+    from .text_line_count import TextLineCount
+except ImportError:
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import text_line_count node.")
+    TextLineCount = None
+
+# Add TextLineCount if imported successfully
+if TextLineCount:
+    NEW_CLASS_MAPPINGS["TextLineCount_BETA"] = TextLineCount
+    NEW_DISPLAY_NAME_MAPPINGS["TextLineCount_BETA"] = "Text line count 🅑🅔🅣🅐"
+
 # Add sharpness clipper  if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper

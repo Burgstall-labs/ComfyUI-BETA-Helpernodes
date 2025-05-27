@@ -12,9 +12,9 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Video Stitch 📼 🅑🅔🅣🅐**: Stitches a batch of previously cropped frames back onto a batch of original frames using metadata provided by the Crop node.
 *   **Save Audio Advanced 🔊 🅑🅔🅣🅐**: Saves audio data (received in ComfyUI's standard AUDIO format, or common dictionary formats) to disk as FLAC, WAV, or MP3, with format-specific quality/compression options.
 *   **Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐**: Analyzes the last N frames of an image batch for sharpness and clips the batch to include frames up to the sharpest one found (optionally skipping text/blank frames). !!!NOTE!!! The logic for this node was borrowed from somewhere on the internet, but as I had no intention of publishing this until it was requested, I didn't bookmark where I got it. If it's yours, please let me know and I will link and credit accordingly.
-  
 *   **Load Text from index 📼 🅑🅔🅣🅐**: Loads a text file (.txt) from a specified directory based on its index in the sorted list of files.
 *   **Indexed LoRA Loader 🎯 🅑🅔🅣🅐**: Loads a specific LoRA from a configurable stack based on an index input. Automatically extracts trigger words from LoRA filenames and applies the LoRA to model and CLIP.
+*   **Text line count 🅑🅔🅣🅐**: Counts the number of lines in a given multiline text input.
 ## Features
 
 ### Video Crop 📼 🅑🅔🅣🅐
@@ -52,6 +52,11 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   Applies LoRA to both model and CLIP with configurable strength values
 *   Robust error handling with fallback to original model/clip if LoRA fails to load
 *   Support for "none" selection to skip LoRA loading
+
+### Text line count 🅑🅔🅣🅐
+*   Takes a multiline text string as input.
+*   Returns the total number of lines in the text.
+*   Handles different newline characters (\n, \r\n, \r).
 
 ## Installation
 
@@ -182,10 +187,21 @@ Loads a specific LoRA from a configurable stack based on an index input. Perfect
 *   If the specified index is out of range or the LoRA fails to load, the original model and clip are returned unchanged.
 *   Set any LoRA slot to "none" to skip loading for that position.
 
+### Text line count 🅑🅔🅣🅐
 
+Counts the number of lines in a multiline text input.
 
+**Inputs:**
 
+*   `text` (STRING): The multiline text to count lines from.
 
+**Outputs:**
+
+*   `line_count` (INT): The total number of lines in the input text.
+
+**Usage Notes:**
+
+*   This node is useful for counting the number of lines in a text input, which can be useful for various text processing tasks.
 
 ## Example Workflows
 
