@@ -23,11 +23,12 @@ except ImportError:
 
 
 # 2. Import the new node class(es) from your new file(s)
-try: # Import the new class
-    from .sharpness_clipper import SharpestFrameClipper
+try: # Import the new classes
+    from .sharpness_clipper import SharpestFrameClipper, SelectSharpestFrames
 except ImportError:
-    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper node.")
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import sharpness_clipper nodes.")
     SharpestFrameClipper = None
+    SelectSharpestFrames = None
 
 # Import and define LoadTextFromIndex before using it
 try:
@@ -55,11 +56,17 @@ if TextLineCount:
     NEW_CLASS_MAPPINGS["TextLineCount_BETA"] = TextLineCount
     NEW_DISPLAY_NAME_MAPPINGS["TextLineCount_BETA"] = "Text line count 🅑🅔🅣🅐"
 
-# Add sharpness clipper  if imported successfully
+# Add sharpness clipper if imported successfully
 if SharpestFrameClipper:
     NEW_CLASS_MAPPINGS["SharpestFrameClipper_BETA"] = SharpestFrameClipper
     # Applying naming convention: Use scissors emoji ✂️
     NEW_DISPLAY_NAME_MAPPINGS["SharpestFrameClipper_BETA"] = "Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐"
+
+# Add select sharpest frames if imported successfully
+if SelectSharpestFrames:
+    NEW_CLASS_MAPPINGS["SelectSharpestFrames_BETA"] = SelectSharpestFrames
+    # Applying naming convention: Use target emoji 🎯
+    NEW_DISPLAY_NAME_MAPPINGS["SelectSharpestFrames_BETA"] = "Select Sharpest Frames 🎯 🅑🅔🅣🅐"
 
 if LoadTextFromIndex:
     NEW_CLASS_MAPPINGS["LoadTextFromIndex_BETA"] = LoadTextFromIndex
