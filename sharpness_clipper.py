@@ -91,8 +91,8 @@ class SelectSharpestFrames:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("selected_frames",)
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("selected_frames", "rejected_frames")
     FUNCTION = "select_sharpest_frames"
     CATEGORY = "Burgstall Enabling The Awesomeness"
 
@@ -124,13 +124,14 @@ class SelectSharpestFrames:
 
     def select_sharpest_frames(self, images, interval, window_size):
         if images is None:
-            return (None,)
+            return (None, None)
 
         batch_size = images.shape[0]
         if batch_size == 0:
-            return (None,)
+            return (None, None)
 
         selected_frames = []
+        rejected_frames = []
         
         # Start from frame 0 and iterate by interval
         current_frame = 0
@@ -151,27 +152,42 @@ class SelectSharpestFrames:
             # Calculate sharpness for each frame in the window
             best_sharpness = -1
             best_frame_idx = current_frame
+            window_frames = []
             
             for i in range(window_start, window_end):
                 frame = images[i]
                 sharpness = self.calculate_sharpness(frame)
+                window_frames.append((i, frame, sharpness))
                 if sharpness > best_sharpness:
                     best_sharpness = sharpness
                     best_frame_idx = i
             
-            # Add the sharpest frame from this window
+            # Add the sharpest frame from this window to selected
             selected_frames.append(images[best_frame_idx])
+            
+            # Add all other frames from this window to rejected
+            for frame_idx, frame, sharpness in window_frames:
+                if frame_idx != best_frame_idx:
+                    rejected_frames.append(frame)
             
             # Move to the next interval
             current_frame += interval
 
+        # Handle empty results
         if len(selected_frames) == 0:
-            return (None,)
-
-        # Stack the selected frames into a batch
-        result = torch.stack(selected_frames, dim=0)
+            return (None, None)
         
-        return (result,)
+        # Stack the selected frames into a batch
+        selected_result = torch.stack(selected_frames, dim=0)
+        
+        # Stack rejected frames if any exist
+        if len(rejected_frames) > 0:
+            rejected_result = torch.stack(rejected_frames, dim=0)
+        else:
+            # Return an empty tensor with the same dimensions as selected but 0 batch size
+            rejected_result = torch.empty((0,) + selected_result.shape[1:], dtype=selected_result.dtype, device=selected_result.device)
+        
+        return (selected_result, rejected_result)
 
 
 # Node Mappings
