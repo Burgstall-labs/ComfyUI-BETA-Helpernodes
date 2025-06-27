@@ -51,6 +51,13 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import text_line_count node.")
     TextLineCount = None
 
+# Import the WAN Resolution Calculator node
+try:
+    from .wan_calculator import WANResolutionCalculator
+except ImportError:
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import wan_calculator node.")
+    WANResolutionCalculator = None
+
 # Add TextLineCount if imported successfully
 if TextLineCount:
     NEW_CLASS_MAPPINGS["TextLineCount_BETA"] = TextLineCount
@@ -75,6 +82,11 @@ if LoadTextFromIndex:
 if IndexedLoRALoader:
     NEW_CLASS_MAPPINGS["IndexedLoRALoader_BETA"] = IndexedLoRALoader
     NEW_DISPLAY_NAME_MAPPINGS["IndexedLoRALoader_BETA"] = "Indexed LoRA Loader 🎯 🅑🅔🅣🅐"
+
+# Add WAN Resolution Calculator if imported successfully
+if WANResolutionCalculator:
+    NEW_CLASS_MAPPINGS["WANResolutionCalculator_BETA"] = WANResolutionCalculator
+    NEW_DISPLAY_NAME_MAPPINGS["WANResolutionCalculator_BETA"] = "WAN Resolution Calculator 📏 🅑🅔🅣🅐"
 
 
 # 4. Combine the mappings from all sources
