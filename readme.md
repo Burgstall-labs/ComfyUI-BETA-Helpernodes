@@ -12,6 +12,8 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Video Stitch 📼 🅑🅔🅣🅐**: Stitches a batch of previously cropped frames back onto a batch of original frames using metadata provided by the Crop node.
 *   **Save Audio Advanced 🔊 🅑🅔🅣🅐**: Saves audio data (received in ComfyUI's standard AUDIO format, or common dictionary formats) to disk as FLAC, WAV, or MP3, with format-specific quality/compression options.
 *   **Clip to Sharpest Frame ✂️ 🅑🅔🅣🅐**: Analyzes the last N frames of an image batch for sharpness and clips the batch to include frames up to the sharpest one found (optionally skipping text/blank frames). !!!NOTE!!! The logic for this node was borrowed from somewhere on the internet, but as I had no intention of publishing this until it was requested, I didn't bookmark where I got it. If it's yours, please let me know and I will link and credit accordingly.
+*   **Select Sharpest Frames 🔍 🅑🅔🅣🅐**: Analyzes frames at regular intervals and selects the sharpest frame from a configurable window around each interval point. Also outputs rejected frames for comparison.
+*   **WAN Resolution Calculator 📏 🅑🅔🅣🅐**: Calculates optimal width and height for WAN (Wavelet Attention Network) models based on target megapixels and aspect ratio constraints.
 *   **Load Text from index 📼 🅑🅔🅣🅐**: Loads a text file (.txt) from a specified directory based on its index in the sorted list of files.
 *   **Indexed LoRA Loader 🎯 🅑🅔🅣🅐**: Loads a specific LoRA from a configurable stack based on an index input. Automatically extracts trigger words from LoRA filenames and applies the LoRA to model and CLIP.
 *   **Text line count 🅑🅔🅣🅐**: Counts the number of lines in a given multiline text input.
@@ -40,6 +42,19 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   Clips image batches based on the sharpest frame within a specified trailing window
 *   Optionally skips frames with significant text-like features or mostly black/white content during sharpness analysis
 *   Outputs the clipped image batch and the index of the sharpest frame identified
+
+### Select Sharpest Frames 🔍 🅑🅔🅣🅐
+*   Analyzes frames at regular intervals (every Nth frame) and selects the sharpest frame from a configurable window around each interval point
+*   Uses variance of Laplacian method for sharpness detection
+*   Outputs both selected frames and rejected frames for comparison and analysis
+*   Configurable interval and window size for flexible frame selection strategies
+
+### WAN Resolution Calculator 📏 🅑🅔🅣🅐
+*   Calculates optimal width and height for WAN (Wavelet Attention Network) models
+*   Considers target megapixels and aspect ratio constraints
+*   Ensures dimensions are multiples of 64 for model compatibility
+*   Supports automatic aspect ratio detection from source images or manual configuration
+*   Outputs calculated dimensions and frame count for workflow integration
 
 ### Load Text from Index 📼 🅑🅔🅣🅐
 *   Loads text files from a directory based on file index
@@ -145,6 +160,55 @@ Analyzes trailing frames in an image batch (e.g., from video) to find the sharpe
 
 *   `clipped_images` (IMAGE): The image batch containing frames from the beginning up to and including the identified sharpest frame.
 *   `sharpest_frame_index` (INT): The index (0-based) within the *original* input batch corresponding to the sharpest frame used for clipping. Returns -1 if no frames were processed (e.g., empty input).
+
+### Select Sharpest Frames 🔍 🅑🅔🅣🅐
+
+Analyzes frames at regular intervals and selects the sharpest frame from a configurable window around each interval point. Useful for intelligent frame sampling from video sequences.
+
+**Inputs:**
+
+*   `images` (IMAGE): The input batch of images to analyze.
+*   `interval` (INT): The interval between frames to analyze (e.g., 5 means analyze every 5th frame).
+*   `window_size` (INT): The size of the window around each interval frame to analyze for sharpness (e.g., 3 means analyze 3 frames centered on the interval frame).
+
+**Outputs:**
+
+*   `selected_frames` (IMAGE): The batch of selected sharpest frames from each analysis window.
+*   `rejected_frames` (IMAGE): The batch of frames that were analyzed but not selected (useful for comparison).
+
+**Usage Notes:**
+
+*   With interval=5 and window_size=3, the node will analyze frames around positions 5, 10, 15, etc., selecting the sharpest from each 3-frame window.
+*   The algorithm handles edge cases where windows extend beyond the batch boundaries.
+*   Both selected and rejected frames are output for flexibility in downstream processing.
+
+### WAN Resolution Calculator 📏 🅑🅔🅣🅐
+
+Calculates optimal width and height dimensions for WAN (Wavelet Attention Network) models based on target megapixels and aspect ratio constraints.
+
+**Inputs:**
+
+*   `target_megapixels` (FLOAT): The target resolution in megapixels (e.g., 1.0 for 1MP).
+*   `source_image` (IMAGE, *optional*): Source image to automatically determine aspect ratio and frame count.
+*   `source_width` (INT): Width of source content (used if source_image not provided).
+*   `source_height` (INT): Height of source content (used if source_image not provided).
+*   `frame_count` (INT): Number of frames to process (required for WAN model calculations).
+*   `aspect_ratio_preset` (STRING): Predefined aspect ratio (16:9, 1:1, 4:3, 3:2, 21:9, 9:16, Custom).
+*   `use_custom_aspect_ratio` (BOOLEAN): Whether to use custom aspect ratio instead of detected/preset.
+*   `custom_aspect_ratio` (FLOAT): Custom aspect ratio value (width/height).
+
+**Outputs:**
+
+*   `width` (INT): Calculated optimal width (multiple of 64).
+*   `height` (INT): Calculated optimal height (multiple of 64).
+*   `frame_count` (INT): Frame count for workflow connectivity.
+*   `info` (STRING): Detailed information about the calculation and settings used.
+
+**Usage Notes:**
+
+*   Aspect ratio priority: source_image (auto-detected) → source_width/height → aspect_ratio_preset → custom → default 16:9.
+*   All output dimensions are guaranteed to be multiples of 64 for WAN model compatibility.
+*   When source_image is provided, it automatically determines frame_count and overrides the frame_count input.
 
 ### Load Text Incrementally 📼 🅑🅔🅣🅐
 Loads a text file (.txt) from a specified directory based on the provided file index.
