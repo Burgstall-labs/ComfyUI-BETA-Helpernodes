@@ -14,6 +14,7 @@ class WANResolutionCalculator:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "frame_count": ("INT", {"default": 16, "min": 1, "max": 1000, "step": 1}),
                 "target_megapixels": ("FLOAT", {"default": 2.0, "min": 0.1, "max": 100.0, "step": 0.1}),
                 "use_custom_aspect_ratio": ("BOOLEAN", {"default": False}),
                 "aspect_ratio_preset": (["16:9", "1:1", "4:3", "3:2", "21:9", "9:16", "3:4", "2:3", "9:21", "Custom"], {"default": "16:9"}),
@@ -26,12 +27,12 @@ class WANResolutionCalculator:
             },
         }
 
-    RETURN_TYPES = ("INT", "INT", "STRING")
-    RETURN_NAMES = ("width", "height", "info")
+    RETURN_TYPES = ("INT", "INT", "INT", "STRING")
+    RETURN_NAMES = ("width", "height", "frame_count", "info")
     FUNCTION = "calculate_wan_resolution"
     CATEGORY = "Burgstall Enabling The Awesomeness"
 
-    def calculate_wan_resolution(self, target_megapixels, use_custom_aspect_ratio, aspect_ratio_preset, custom_aspect_ratio, source_width, source_height, source_image=None):
+    def calculate_wan_resolution(self, frame_count, target_megapixels, use_custom_aspect_ratio, aspect_ratio_preset, custom_aspect_ratio, source_width, source_height, source_image=None):
         # Define aspect ratio presets
         aspect_ratios = {
             "16:9": 16/9,      # 1.778
@@ -46,20 +47,24 @@ class WANResolutionCalculator:
             "Custom": custom_aspect_ratio
         }
         
-        # Determine aspect ratio to use
-        if use_custom_aspect_ratio:
+        # Determine actual frame count and aspect ratio
+        actual_frame_count = frame_count
+        
+        # Determine aspect ratio to use - prioritize source image first
+        if source_image is not None and not use_custom_aspect_ratio:
+            # Use source image aspect ratio and frame count when available and not overridden
+            batch_size, height, width, channels = source_image.shape
+            actual_frame_count = batch_size
+            aspect_ratio = width / height
+            aspect_ratio_source = "source image"
+        elif not use_custom_aspect_ratio and source_width and source_height:
+            # Use provided width/height aspect ratio when not using custom override
+            aspect_ratio = source_width / source_height
+            aspect_ratio_source = f"source dimensions ({source_width}x{source_height})"
+        elif use_custom_aspect_ratio:
             # Use custom aspect ratio when override is enabled
             aspect_ratio = aspect_ratios[aspect_ratio_preset]
             aspect_ratio_source = f"custom ({aspect_ratio_preset})"
-        elif source_width and source_height:
-            # Use provided width/height aspect ratio (priority over source image)
-            aspect_ratio = source_width / source_height
-            aspect_ratio_source = f"source dimensions ({source_width}x{source_height})"
-        elif source_image is not None:
-            # Use source image aspect ratio as fallback
-            batch_size, height, width, channels = source_image.shape
-            aspect_ratio = width / height
-            aspect_ratio_source = "source image"
         else:
             # Default to 16:9 when no other source is available
             aspect_ratio = aspect_ratios["16:9"]
@@ -84,9 +89,10 @@ class WANResolutionCalculator:
         
         detailed_info = (f"Target: {target_megapixels:.1f}MP, "
                         f"Final: {final_width}x{final_height} ({actual_megapixels:.2f}MP), "
+                        f"{actual_frame_count} frames, "
                         f"Aspect: {aspect_ratio:.3f} ({aspect_ratio_source})")
         
-        return (final_width, final_height, detailed_info)
+        return (final_width, final_height, actual_frame_count, detailed_info)
 
 
 # Node Mappings
