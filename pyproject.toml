@@ -1,0 +1,14 @@
+[project]
+name = "beta-cropnodes"
+description = "Custom nodes for ComfyUI designed for cropping and stitching video frames (image batches). Part of the 'Burgstall Enabling The Awesomeness' suite."
+version = "1.0.0"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/Burgstall-labs/ComfyUI-BETA-Cropnodes"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI-BETA-Cropnodes"
+Icon = ""
