@@ -24,9 +24,13 @@ app.registerExtension({
 
                 const indexWidget = node.widgets.find(w => w.name === "index");
 
+                // CRITICAL: Save ALL current widget values BEFORE clearing widgets
+                // This ensures we capture the most up-to-date values directly from widgets,
+                // even if widget callbacks haven't fired yet or properties are stale
                 for (let i = 1; i <= 20; i++) {
                     const loraWidget = node.widgets.find(w => w.name === `lora_${i}`);
                     if (loraWidget) {
+                        // Always read the current widget value directly, don't rely on stale properties
                         node.properties[`lora_${i}`] = loraWidget.value;
                     }
                 }
