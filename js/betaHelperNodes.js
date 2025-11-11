@@ -174,6 +174,14 @@ app.registerExtension({
 
             const MAX_SCENES = 50; // Match Python MAX_SCENES constant
             
+            // Store the original/master list of all outputs if not already stored
+            // This serves as our template to rebuild from
+            if (!node.all_outputs || node.all_outputs.length === 0) {
+                // Clone the outputs array to preserve the master list
+                node.all_outputs = node.outputs ? [...node.outputs] : [];
+                console.log(`[BETA Helper Nodes] Stored master outputs list: ${node.all_outputs.length} outputs`);
+            }
+            
             const updateDynamicOutputs = () => {
                 const maxScenesWidget = node.widgets.find(w => w.name === "max_scenes");
                 if (!maxScenesWidget) {
@@ -184,83 +192,100 @@ app.registerExtension({
                 const maxScenes = parseInt(maxScenesWidget.value, 10) || 10;
                 const clampedMaxScenes = Math.max(1, Math.min(maxScenes, MAX_SCENES));
                 
-                // Expected outputs: scene_1 through scene_MAX_SCENES, then scene_frames, scene_summary, scene_count
-                // Total: MAX_SCENES + 3 outputs
+                // Expected total outputs: MAX_SCENES scene outputs + 3 standard outputs
                 const totalExpectedOutputs = MAX_SCENES + 3;
                 
-                // Ensure node has the correct number of outputs
-                if (!node.outputs || node.outputs.length !== totalExpectedOutputs) {
-                    console.warn(`[BETA Helper Nodes] Scene Detection node has ${node.outputs?.length || 0} outputs, expected ${totalExpectedOutputs}`);
-                    return;
+                // Ensure we have the master list
+                if (!node.all_outputs || node.all_outputs.length !== totalExpectedOutputs) {
+                    console.warn(`[BETA Helper Nodes] Master outputs list invalid. Expected ${totalExpectedOutputs}, got ${node.all_outputs?.length || 0}`);
+                    // Try to rebuild master list from current outputs if available
+                    if (node.outputs && node.outputs.length === totalExpectedOutputs) {
+                        node.all_outputs = [...node.outputs];
+                        console.log(`[BETA Helper Nodes] Rebuilt master outputs list from current outputs`);
+                    } else {
+                        return; // Can't proceed without master list
+                    }
                 }
                 
-                // Show/hide scene output sockets based on max_scenes
-                // Outputs 0 to (clampedMaxScenes - 1) are scene_1 through scene_max_scenes
-                // Output MAX_SCENES is scene_frames (always visible)
-                // Output MAX_SCENES + 1 is scene_summary (always visible)
-                // Output MAX_SCENES + 2 is scene_count (always visible)
+                // Rebuild the outputs array:
+                // 1. Take the first 'clampedMaxScenes' scene outputs from master list
+                // 2. Append the 3 standard outputs (scene_frames, scene_summary, scene_count) from the end of master list
+                const newOutputs = [];
                 
-                // Access output elements through the node's DOM
-                const nodeEl = node.el || node;
-                if (nodeEl && nodeEl.querySelectorAll) {
-                    // Find all output elements (typically have class 'output' or similar)
-                    const outputElements = nodeEl.querySelectorAll('.output, [data-output-index]');
-                    
-                    // Hide/show scene outputs
-                    for (let i = 0; i < MAX_SCENES; i++) {
-                        // Try to find output by index or name
-                        let outputEl = null;
-                        
-                        // Try finding by data attribute
-                        outputEl = nodeEl.querySelector(`[data-output-index="${i}"]`);
-                        if (!outputEl) {
-                            // Try finding by output name
-                            outputEl = nodeEl.querySelector(`[data-output-name="scene_${i+1}"]`);
-                        }
-                        if (!outputEl && outputElements[i]) {
-                            // Fallback to array index
-                            outputEl = outputElements[i];
-                        }
-                        
-                        if (outputEl) {
-                            outputEl.style.display = i < clampedMaxScenes ? "" : "none";
-                        }
+                // Add visible scene outputs (scene_1 through scene_max_scenes)
+                for (let i = 0; i < clampedMaxScenes; i++) {
+                    if (node.all_outputs[i]) {
+                        newOutputs.push(node.all_outputs[i]);
                     }
-                    
-                    // Always show the last 3 outputs
-                    for (let i = MAX_SCENES; i < totalExpectedOutputs; i++) {
-                        let outputEl = null;
-                        outputEl = nodeEl.querySelector(`[data-output-index="${i}"]`);
-                        if (!outputEl && outputElements[i]) {
-                            outputEl = outputElements[i];
-                        }
-                        if (outputEl) {
-                            outputEl.style.display = "";
-                        }
+                }
+                
+                // Add the 3 standard outputs from the end (scene_frames, scene_summary, scene_count)
+                for (let i = MAX_SCENES; i < totalExpectedOutputs; i++) {
+                    if (node.all_outputs[i]) {
+                        newOutputs.push(node.all_outputs[i]);
                     }
-                } else {
-                    // Fallback: try direct manipulation of node.outputs
-                    if (node.outputs) {
-                        for (let i = 0; i < MAX_SCENES; i++) {
-                            if (node.outputs[i]) {
-                                const output = node.outputs[i];
-                                // Try to hide via various properties
-                                if (output.hidden !== undefined) {
-                                    output.hidden = i >= clampedMaxScenes;
-                                }
-                                // Try DOM manipulation
-                                if (output.dom) {
-                                    output.dom.style.display = i < clampedMaxScenes ? "" : "none";
+                }
+                
+                // Replace the node's outputs array with the rebuilt one
+                // Clear existing outputs first to ensure clean state
+                if (node.outputs && node.outputs.length > 0) {
+                    // Disconnect any existing connections to outputs we're removing
+                    for (let i = clampedMaxScenes; i < MAX_SCENES; i++) {
+                        if (node.outputs[i] && node.outputs[i].links) {
+                            // Links are managed by ComfyUI, but we can try to clean up
+                            const links = node.outputs[i].links || [];
+                            for (const linkId of links) {
+                                const link = app.graph.links[linkId];
+                                if (link) {
+                                    // ComfyUI will handle link cleanup, but we ensure outputs are updated
                                 }
                             }
                         }
                     }
                 }
                 
-                // Update node size and redraw
+                // Replace outputs array
+                node.outputs = newOutputs;
+                
+                console.log(`[BETA Helper Nodes] Updated Scene Detection outputs: ${clampedMaxScenes} scene outputs + 3 standard outputs = ${newOutputs.length} total`);
+                
+                // Also manipulate DOM directly as a fallback to ensure visual update
+                // ComfyUI nodes typically have outputs in a specific DOM structure
+                try {
+                    const nodeElement = node.el || node.domElement || (node.constructor && node.constructor.prototype && node.constructor.prototype.el);
+                    if (nodeElement) {
+                        // Find all output elements - ComfyUI typically uses classes like 'output' or structure in .outputs container
+                        const outputContainer = nodeElement.querySelector('.outputs') || nodeElement;
+                        const allOutputElements = outputContainer.querySelectorAll('.output, [class*="output"]');
+                        
+                        // Hide outputs beyond max_scenes (but keep the last 3 visible)
+                        allOutputElements.forEach((el, index) => {
+                            if (index < MAX_SCENES) {
+                                // Scene outputs: hide if beyond clampedMaxScenes
+                                el.style.display = index < clampedMaxScenes ? "" : "none";
+                            } else if (index >= MAX_SCENES && index < totalExpectedOutputs) {
+                                // Standard outputs: always show
+                                el.style.display = "";
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`[BETA Helper Nodes] Could not update DOM directly: ${e.message}`);
+                }
+                
+                // Force node to recalculate size and redraw
+                // Use ComfyUI's methods to ensure proper update
+                if (node.onResize) {
+                    node.onResize();
+                }
                 const new_computed_size = node.computeSize();
                 node.setSize(new_computed_size);
                 node.setDirtyCanvas(true, true);
+                
+                // Trigger ComfyUI's output update if method exists
+                if (node.onOutputsChanged) {
+                    node.onOutputsChanged();
+                }
             };
             
             // Watch for max_scenes widget changes
@@ -280,10 +305,21 @@ app.registerExtension({
             const onNodeConfigure = node.onConfigure;
             node.onConfigure = function(info) {
                 if (onNodeConfigure) onNodeConfigure.apply(this, arguments);
+                // Ensure master list is preserved during configuration
+                if (!this.all_outputs || this.all_outputs.length === 0) {
+                    if (this.outputs && this.outputs.length > 0) {
+                        // If we lost the master list, try to restore it
+                        // This might happen if the node was saved/loaded
+                        const totalExpected = MAX_SCENES + 3;
+                        if (this.outputs.length === totalExpected) {
+                            this.all_outputs = [...this.outputs];
+                        }
+                    }
+                }
                 setTimeout(updateDynamicOutputs, 50);
             };
             
-            // Initial update
+            // Initial update after a short delay to ensure node is fully initialized
             setTimeout(updateDynamicOutputs, 100);
         }
     }
