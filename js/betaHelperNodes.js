@@ -162,3 +162,129 @@ app.registerExtension({
         }
     }
 });
+
+// Scene Detection Node - Dynamic Output Sockets
+app.registerExtension({
+    name: "Comfy.BETAHelperNodes.SceneDetectLogic",
+    async nodeCreated(node) {
+        const expectedNodeTitle = "Scene Detect 🎥 🅑🅔🅣🅐"; // Match the node's display name
+
+        if (node.title === expectedNodeTitle) {
+            console.log(`[BETA Helper Nodes] MATCHED Scene Detection node: '${node.title}'`);
+
+            const MAX_SCENES = 50; // Match Python MAX_SCENES constant
+            
+            const updateDynamicOutputs = () => {
+                const maxScenesWidget = node.widgets.find(w => w.name === "max_scenes");
+                if (!maxScenesWidget) {
+                    console.error("[BETA Helper Nodes] 'max_scenes' widget not found!");
+                    return;
+                }
+                
+                const maxScenes = parseInt(maxScenesWidget.value, 10) || 10;
+                const clampedMaxScenes = Math.max(1, Math.min(maxScenes, MAX_SCENES));
+                
+                // Expected outputs: scene_1 through scene_MAX_SCENES, then scene_frames, scene_summary, scene_count
+                // Total: MAX_SCENES + 3 outputs
+                const totalExpectedOutputs = MAX_SCENES + 3;
+                
+                // Ensure node has the correct number of outputs
+                if (!node.outputs || node.outputs.length !== totalExpectedOutputs) {
+                    console.warn(`[BETA Helper Nodes] Scene Detection node has ${node.outputs?.length || 0} outputs, expected ${totalExpectedOutputs}`);
+                    return;
+                }
+                
+                // Show/hide scene output sockets based on max_scenes
+                // Outputs 0 to (clampedMaxScenes - 1) are scene_1 through scene_max_scenes
+                // Output MAX_SCENES is scene_frames (always visible)
+                // Output MAX_SCENES + 1 is scene_summary (always visible)
+                // Output MAX_SCENES + 2 is scene_count (always visible)
+                
+                // Access output elements through the node's DOM
+                const nodeEl = node.el || node;
+                if (nodeEl && nodeEl.querySelectorAll) {
+                    // Find all output elements (typically have class 'output' or similar)
+                    const outputElements = nodeEl.querySelectorAll('.output, [data-output-index]');
+                    
+                    // Hide/show scene outputs
+                    for (let i = 0; i < MAX_SCENES; i++) {
+                        // Try to find output by index or name
+                        let outputEl = null;
+                        
+                        // Try finding by data attribute
+                        outputEl = nodeEl.querySelector(`[data-output-index="${i}"]`);
+                        if (!outputEl) {
+                            // Try finding by output name
+                            outputEl = nodeEl.querySelector(`[data-output-name="scene_${i+1}"]`);
+                        }
+                        if (!outputEl && outputElements[i]) {
+                            // Fallback to array index
+                            outputEl = outputElements[i];
+                        }
+                        
+                        if (outputEl) {
+                            outputEl.style.display = i < clampedMaxScenes ? "" : "none";
+                        }
+                    }
+                    
+                    // Always show the last 3 outputs
+                    for (let i = MAX_SCENES; i < totalExpectedOutputs; i++) {
+                        let outputEl = null;
+                        outputEl = nodeEl.querySelector(`[data-output-index="${i}"]`);
+                        if (!outputEl && outputElements[i]) {
+                            outputEl = outputElements[i];
+                        }
+                        if (outputEl) {
+                            outputEl.style.display = "";
+                        }
+                    }
+                } else {
+                    // Fallback: try direct manipulation of node.outputs
+                    if (node.outputs) {
+                        for (let i = 0; i < MAX_SCENES; i++) {
+                            if (node.outputs[i]) {
+                                const output = node.outputs[i];
+                                // Try to hide via various properties
+                                if (output.hidden !== undefined) {
+                                    output.hidden = i >= clampedMaxScenes;
+                                }
+                                // Try DOM manipulation
+                                if (output.dom) {
+                                    output.dom.style.display = i < clampedMaxScenes ? "" : "none";
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Update node size and redraw
+                const new_computed_size = node.computeSize();
+                node.setSize(new_computed_size);
+                node.setDirtyCanvas(true, true);
+            };
+            
+            // Watch for max_scenes widget changes
+            const maxScenesWidget = node.widgets.find(w => w.name === "max_scenes");
+            if (maxScenesWidget) {
+                const originalCallback = maxScenesWidget.callback;
+                maxScenesWidget.callback = (value) => {
+                    maxScenesWidget.value = parseInt(value, 10) || 10;
+                    if (isNaN(maxScenesWidget.value)) maxScenesWidget.value = 10;
+                    maxScenesWidget.value = Math.max(1, Math.min(maxScenesWidget.value, MAX_SCENES));
+                    if (originalCallback) originalCallback.call(maxScenesWidget, maxScenesWidget.value);
+                    updateDynamicOutputs();
+                };
+            }
+            
+            // Handle node configuration/state restoration
+            const onNodeConfigure = node.onConfigure;
+            node.onConfigure = function(info) {
+                if (onNodeConfigure) onNodeConfigure.apply(this, arguments);
+                setTimeout(updateDynamicOutputs, 50);
+            };
+            
+            // Initial update
+            setTimeout(updateDynamicOutputs, 100);
+        }
+    }
+});

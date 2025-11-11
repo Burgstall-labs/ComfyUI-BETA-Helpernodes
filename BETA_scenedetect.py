@@ -10,8 +10,10 @@ from scenedetect.detectors import ContentDetector
 class BETASceneDetect:
     """
     Detects scenes in a batch of images using PySceneDetect.
-    Returns the start and end frames of each detected scene.
+    Returns the start and end frames of each detected scene, plus individual scene batches.
     """
+    MAX_SCENES = 50  # Maximum number of scene outputs supported
+    
     def __init__(self):
         pass
 
@@ -21,11 +23,13 @@ class BETASceneDetect:
             "required": {
                 "images": ("IMAGE",),
                 "threshold": ("FLOAT", {"default": 27.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+                "max_scenes": ("INT", {"default": 10, "min": 1, "max": cls.MAX_SCENES, "step": 1}),
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "STRING", "INT")
-    RETURN_NAMES = ("scene_frames", "scene_summary", "scene_count")
+    # Build return types: 50 scene outputs + 3 standard outputs
+    RETURN_TYPES = tuple("IMAGE" for _ in range(50)) + ("IMAGE", "STRING", "INT")
+    RETURN_NAMES = tuple(f"scene_{i+1}" for i in range(50)) + ("scene_frames", "scene_summary", "scene_count")
     FUNCTION = "detect_scenes"
     CATEGORY = "Burgstall Enabling The Awesomeness"
 
@@ -85,26 +89,29 @@ class BETASceneDetect:
             video_writer.release()
             return False
 
-    def detect_scenes(self, images, threshold):
+    def detect_scenes(self, images, threshold, max_scenes):
         """
         Detect scenes in a batch of images using PySceneDetect.
         
         Args:
             images: torch.Tensor of shape (batch, height, width, channels)
             threshold: Detection threshold for ContentDetector
+            max_scenes: Maximum number of scene outputs to return
         
         Returns:
-            tuple: (scene_frames, scene_summary, scene_count)
-                - scene_frames: torch.Tensor with start and end frames of each scene
-                - scene_summary: String describing detected scenes
-                - scene_count: Integer count of detected scenes
+            tuple: (scene_1, scene_2, ..., scene_50, scene_frames, scene_summary, scene_count)
+                - scene_1 through scene_max_scenes: Individual scene batches (or None if not detected)
+                - scene_frames: torch.Tensor with start and end frames of each scene (preview)
+                - scene_summary: String describing ALL detected scenes
+                - scene_count: Integer count of ALL detected scenes (not limited by max_scenes)
         """
         if images is None:
-            return (None, "No images provided", 0)
+            # Return None for all scene outputs + error message
+            return tuple([None] * self.MAX_SCENES) + (None, "No images provided", 0)
         
         batch_size = images.shape[0]
         if batch_size == 0:
-            return (None, "Empty image batch", 0)
+            return tuple([None] * self.MAX_SCENES) + (None, "Empty image batch", 0)
         
         # Create temporary video file
         temp_fd, temp_video_path = tempfile.mkstemp(suffix='.mp4', prefix='scenedetect_')
@@ -113,7 +120,7 @@ class BETASceneDetect:
         try:
             # Convert images to temporary video file
             if not self._images_to_video(images, temp_video_path):
-                return (None, "Failed to create temporary video", 0)
+                return tuple([None] * self.MAX_SCENES) + (None, "Failed to create temporary video", 0)
             
             # Use PySceneDetect to detect scenes
             video = open_video(temp_video_path)
@@ -122,22 +129,15 @@ class BETASceneDetect:
             scene_manager.detect_scenes(video, show_progress=False)
             scene_list = scene_manager.get_scene_list()
             
-            if len(scene_list) == 0:
-                # No scenes detected, return all frames as a single scene
-                scene_frames = images[[0, batch_size - 1]]  # Start and end frame
-                scene_summary = f"Scene 1: Frames 0-{batch_size - 1} (No scene changes detected)"
-                scene_count = 1
-                return (scene_frames, scene_summary, scene_count)
-            
-            # Extract start and end frames for each scene
+            # Extract scene boundaries and individual scene batches
             # Note: PySceneDetect returns scenes where end_time is the start of the next scene
-            scene_frame_indices = []
-            scene_summary_parts = []
+            scene_batches = []  # List of individual scene batches
+            scene_frame_indices = []  # For preview (start/end frames)
+            scene_summary_parts = []  # For summary text
             
             for i, (start_time, end_time) in enumerate(scene_list):
                 # Get frame numbers from timecodes
                 start_frame = start_time.frame_num
-                # end_time.frame_num is the start of the next scene, so end_frame is one less
                 next_scene_start = end_time.frame_num
                 
                 # Clamp frame indices to valid range
@@ -154,13 +154,24 @@ class BETASceneDetect:
                 # Ensure end_frame is at least start_frame
                 end_frame = max(start_frame, end_frame)
                 
-                # Add start and end frames
+                # Extract the full scene batch (all frames from start to end inclusive)
+                scene_batch = images[start_frame:end_frame + 1]
+                scene_batches.append(scene_batch)
+                
+                # Add start and end frames for preview
                 scene_frame_indices.append(start_frame)
                 scene_frame_indices.append(end_frame)
                 
                 scene_summary_parts.append(f"Scene {i + 1}: Frames {start_frame}-{end_frame}")
             
-            # Remove duplicates while preserving order
+            # Handle case where no scenes detected
+            if len(scene_list) == 0:
+                # No scenes detected, return all frames as a single scene
+                scene_batches = [images]  # All frames as one scene
+                scene_frame_indices = [0, batch_size - 1]
+                scene_summary_parts = [f"Scene 1: Frames 0-{batch_size - 1} (No scene changes detected)"]
+            
+            # Remove duplicates from preview indices while preserving order
             seen = set()
             unique_indices = []
             for idx in scene_frame_indices:
@@ -168,21 +179,31 @@ class BETASceneDetect:
                     seen.add(idx)
                     unique_indices.append(idx)
             
-            # Extract the frames
+            # Create preview frames (start and end of each scene)
             if len(unique_indices) == 0:
-                return (None, "No valid scene frames found", 0)
+                scene_frames = None
+            else:
+                scene_frames = images[unique_indices]
             
-            scene_frames = images[unique_indices]
+            # Build scene summary (includes ALL detected scenes)
             scene_summary = " | ".join(scene_summary_parts)
-            scene_count = len(scene_list)
+            scene_count = len(scene_list) if len(scene_list) > 0 else 1
             
-            return (scene_frames, scene_summary, scene_count)
+            # Build return tuple: individual scene outputs + preview + summary + count
+            scene_outputs = []
+            for i in range(self.MAX_SCENES):
+                if i < len(scene_batches):
+                    scene_outputs.append(scene_batches[i])
+                else:
+                    scene_outputs.append(None)
+            
+            return tuple(scene_outputs) + (scene_frames, scene_summary, scene_count)
             
         except Exception as e:
             print(f"Error in scene detection: {e}")
             import traceback
             traceback.print_exc()
-            return (None, f"Error: {str(e)}", 0)
+            return tuple([None] * self.MAX_SCENES) + (None, f"Error: {str(e)}", 0)
             
         finally:
             # Clean up temporary video file
