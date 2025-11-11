@@ -98,7 +98,7 @@ if WANResolutionCalculator:
 # Add Scene Detection node if imported successfully
 if BETASceneDetect:
     NEW_CLASS_MAPPINGS["BETASceneDetect_BETA"] = BETASceneDetect
-    NEW_DISPLAY_NAME_MAPPINGS["BETASceneDetect_BETA"] = "Scene Detect 🎥 🅑🅔🅣🅐"
+    NEW_DISPLAY_NAME_MAPPINGS["BETASceneDetect_BETA"] = "Scene detect & split 🎥 🅑🅔🅣🅐"
 
 
 # 4. Combine the mappings from all sources

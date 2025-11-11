@@ -22,7 +22,13 @@ class BETASceneDetect:
         return {
             "required": {
                 "images": ("IMAGE",),
-                "threshold": ("FLOAT", {"default": 27.0, "min": 0.0, "max": 100.0, "step": 0.1}),
+                "threshold": ("FLOAT", {
+                    "default": 27.0, 
+                    "min": 0.0, 
+                    "max": 100.0, 
+                    "step": 0.1,
+                    "tooltip": "Detection sensitivity threshold. Lower values (e.g., 15-20) detect more scene changes (more sensitive). Higher values (e.g., 30-40) detect fewer scene changes (less sensitive). Default: 27.0"
+                }),
             },
         }
 
@@ -160,14 +166,17 @@ class BETASceneDetect:
                 scene_frame_indices.append(start_frame)
                 scene_frame_indices.append(end_frame)
                 
-                scene_summary_parts.append(f"Scene {i + 1}: Frames {start_frame}-{end_frame}")
+                # Calculate frame count for this scene
+                frame_count = end_frame - start_frame + 1
+                scene_summary_parts.append(f"Scene {i + 1}: Frames {start_frame}-{end_frame} [{frame_count} frames]")
             
             # Handle case where no scenes detected
             if len(scene_list) == 0:
                 # No scenes detected, return all frames as a single scene
                 scene_batches = [images]  # All frames as one scene
                 scene_frame_indices = [0, batch_size - 1]
-                scene_summary_parts = [f"Scene 1: Frames 0-{batch_size - 1} (No scene changes detected)"]
+                frame_count = batch_size
+                scene_summary_parts = [f"Scene 1: Frames 0-{batch_size - 1} [{frame_count} frames] (No scene changes detected)"]
             
             # Calculate remaining frames (frames after the last detected scene)
             # Find the end frame of the last scene that we're outputting
@@ -254,6 +263,6 @@ NODE_CLASS_MAPPINGS = {
 
 # Node Display Name Mappings
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "BETASceneDetect": "Scene Detect 🎥 🅑🅔🅣🅐",
+    "BETASceneDetect": "Scene detect & split 🎥 🅑🅔🅣🅐",
 }
 

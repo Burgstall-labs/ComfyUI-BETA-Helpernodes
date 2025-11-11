@@ -17,7 +17,7 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   **Load Text from index 📼 🅑🅔🅣🅐**: Loads a text file (.txt) from a specified directory based on its index in the sorted list of files.
 *   **Indexed LoRA Loader 🎯 🅑🅔🅣🅐**: Loads a specific LoRA from a configurable stack based on an index input. Automatically extracts trigger words from LoRA filenames and applies the LoRA to model and CLIP.
 *   **Text line count 🅑🅔🅣🅐**: Counts the number of lines in a given multiline text input.
-*   **Scene Detect 🎥 🅑🅔🅣🅐**: Detects scene changes in a batch of images using PySceneDetect. Outputs up to 5 detected scenes as individual batches, plus remaining frames for chaining to additional Scene Detect nodes.
+*   **Scene detect & split 🎥 🅑🅔🅣🅐**: Detects scene changes in a batch of images using PySceneDetect. Outputs up to 5 detected scenes as individual batches, plus remaining frames for chaining to additional Scene detect & split nodes.
 
 ### Video Crop 📼 🅑🅔🅣🅐
 *   Simple cropping of video frame batches with precise coordinate control
@@ -73,10 +73,10 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 *   Returns the total number of lines in the text.
 *   Handles different newline characters (\n, \r\n, \r).
 
-### Scene Detect 🎥 🅑🅔🅣🅐
+### Scene detect & split 🎥 🅑🅔🅣🅐
 *   Detects scene changes in image batches using PySceneDetect's ContentDetector
 *   Outputs up to 5 detected scenes as individual image batches
-*   Provides remaining frames output for chaining to additional Scene Detect nodes
+*   Provides remaining frames output for chaining to additional Scene detect & split nodes
 *   Includes preview frames (start/end of each scene) and detailed processing statistics
 *   Detects ALL scenes but outputs only the first 5 (remaining can be processed by chaining)
 
@@ -96,7 +96,7 @@ Alternatively, you can download the `.zip` of this repository and extract the `C
 *   Requires a standard ComfyUI installation (PyTorch, Torchaudio).
 *   **OpenCV:** The `Clip to Sharpest Frame` node requires `opencv-python`. Install it via pip: `pip install opencv-python` (or ensure it's in your environment).
 *   **MP3 Saving Requirement:** Saving to `.mp3` requires **FFmpeg** (usually including `libmp3lame`) to be installed on your system and accessible in the system's PATH. WAV and FLAC saving do not require external dependencies beyond torchaudio.
-*   **PySceneDetect:** The `Scene Detect` node requires `scenedetect[opencv]`. Install it via pip: `pip install scenedetect[opencv]` (or ensure it's in your environment).
+*   **PySceneDetect:** The `Scene detect & split` node requires `scenedetect[opencv]`. Install it via pip: `pip install scenedetect[opencv]` (or ensure it's in your environment).
 
 ## Usage
 
@@ -273,19 +273,19 @@ Counts the number of lines in a multiline text input.
 
 *   This node is useful for counting the number of lines in a text input, which can be useful for various text processing tasks.
 
-### Scene Detect 🎥 🅑🅔🅣🅐
+### Scene detect & split 🎥 🅑🅔🅣🅐
 
-Detects scene changes in a batch of images and outputs up to 5 scenes as individual batches. Remaining frames can be chained to additional Scene Detect nodes for processing more scenes.
+Detects scene changes in a batch of images and outputs up to 5 scenes as individual batches. Remaining frames can be chained to additional Scene detect & split nodes for processing more scenes.
 
 **Inputs:**
 
 *   `images` (IMAGE): The input batch of images (video frames).
-*   `threshold` (FLOAT): Detection threshold for ContentDetector (default: 27.0). Lower values detect more scene changes, higher values detect fewer.
+*   `threshold` (FLOAT): Detection sensitivity threshold (default: 27.0). Lower values (e.g., 15-20) detect more scene changes (more sensitive). Higher values (e.g., 30-40) detect fewer scene changes (less sensitive).
 
 **Outputs:**
 
 *   `scene_1` through `scene_5` (IMAGE): Individual scene batches. Returns `None` if fewer than N scenes are detected.
-*   `remaining_frames` (IMAGE): Frames after the last output scene. Use this to chain to another Scene Detect node to process more scenes.
+*   `remaining_frames` (IMAGE): Frames after the last output scene. Use this to chain to another Scene detect & split node to process more scenes.
 *   `scene_frames` (IMAGE): Preview batch containing the start and end frame of each detected scene.
 *   `scene_summary` (STRING): Detailed summary including:
     *   Total frames processed
@@ -297,8 +297,8 @@ Detects scene changes in a batch of images and outputs up to 5 scenes as individ
 **Usage Notes:**
 
 *   The node detects ALL scenes in the batch but only outputs the first 5 as individual batches.
-*   To process more than 5 scenes, chain multiple Scene Detect nodes:
-    1. Connect `remaining_frames` from the first node to `images` input of a second Scene Detect node
+*   To process more than 5 scenes, chain multiple Scene detect & split nodes:
+    1. Connect `remaining_frames` from the first node to `images` input of a second Scene detect & split node
     2. The second node will detect scenes in the remaining frames
     3. Repeat as needed for longer videos
 *   The `scene_summary` output provides detailed statistics about what was processed and what's available for chaining.
