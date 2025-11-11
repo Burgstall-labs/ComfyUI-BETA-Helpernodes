@@ -6,5 +6,8 @@ numpy
 # Required for SharpestFrameClipper node
 opencv-python
 
+# Required for Scene Detection node
+scenedetect[opencv]
+
 # --- External System Dependencies (Not managed by pip) ---
 # ... (Keep the FFmpeg note for MP3 saving) ...

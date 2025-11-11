@@ -58,6 +58,13 @@ except ImportError:
     print("[ComfyUI-BETA-Helpernodes] Warning: Could not import wan_calculator node.")
     WANResolutionCalculator = None
 
+# Import the Scene Detection node
+try:
+    from .BETA_scenedetect import BETASceneDetect
+except ImportError:
+    print("[ComfyUI-BETA-Helpernodes] Warning: Could not import scene detection node.")
+    BETASceneDetect = None
+
 # Add TextLineCount if imported successfully
 if TextLineCount:
     NEW_CLASS_MAPPINGS["TextLineCount_BETA"] = TextLineCount
@@ -87,6 +94,11 @@ if IndexedLoRALoader:
 if WANResolutionCalculator:
     NEW_CLASS_MAPPINGS["WANResolutionCalculator_BETA"] = WANResolutionCalculator
     NEW_DISPLAY_NAME_MAPPINGS["WANResolutionCalculator_BETA"] = "WAN Resolution Calculator 📏 🅑🅔🅣🅐"
+
+# Add Scene Detection node if imported successfully
+if BETASceneDetect:
+    NEW_CLASS_MAPPINGS["BETASceneDetect_BETA"] = BETASceneDetect
+    NEW_DISPLAY_NAME_MAPPINGS["BETASceneDetect_BETA"] = "Scene Detect 🎥 🅑🅔🅣🅐"
 
 
 # 4. Combine the mappings from all sources
