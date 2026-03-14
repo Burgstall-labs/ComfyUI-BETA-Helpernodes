@@ -52,7 +52,7 @@ Custom utility nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), p
 ### WAN Resolution Calculator 📏 🅑🅔🅣🅐
 *   Calculates optimal width and height for WAN (Wavelet Attention Network) models
 *   Considers target megapixels and aspect ratio constraints
-*   Ensures dimensions are multiples of 64 for model compatibility
+*   Ensures dimensions are multiples of a configurable value (8, 16, 32, or 64; default 16) for model compatibility
 *   Supports automatic aspect ratio detection from source images or manual configuration
 *   Outputs calculated dimensions and frame count for workflow integration
 
@@ -205,15 +205,15 @@ Calculates optimal width and height dimensions for WAN (Wavelet Attention Networ
 
 **Outputs:**
 
-*   `width` (INT): Calculated optimal width (multiple of 64).
-*   `height` (INT): Calculated optimal height (multiple of 64).
+*   `width` (INT): Calculated optimal width (multiple of rounding_multiple).
+*   `height` (INT): Calculated optimal height (multiple of rounding_multiple).
 *   `frame_count` (INT): Frame count for workflow connectivity.
 *   `info` (STRING): Detailed information about the calculation and settings used.
 
 **Usage Notes:**
 
 *   Aspect ratio priority: source_image (auto-detected) → source_width/height → aspect_ratio_preset → custom → default 16:9.
-*   All output dimensions are guaranteed to be multiples of 64 for WAN model compatibility.
+*   All output dimensions are guaranteed to be multiples of the selected rounding value (default 16) for model compatibility.
 *   When source_image is provided, it automatically determines frame_count and overrides the frame_count input.
 
 ### Load Text Incrementally 📼 🅑🅔🅣🅐

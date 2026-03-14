@@ -4,7 +4,7 @@
 
 ComfyUI-BETA-Helpernodes is a custom nodes package for [ComfyUI](https://github.com/comfyanonymous/ComfyUI), part of the "Burgstall Enabling The Awesomeness" (BETA) suite. It provides utility nodes for video manipulation, audio processing, image analysis, and workflow automation.
 
-**Version**: 1.3.0
+**Version**: 1.4.0
 **License**: MIT
 
 ## Repository Structure
@@ -36,7 +36,7 @@ Every node file follows this pattern — **maintain it when adding new nodes**:
    - `RETURN_TYPES` tuple
    - `RETURN_NAMES` tuple
    - `FUNCTION` string (method name to call)
-   - `CATEGORY` string (use `"Burgstall Enabling The Awesomeness"` or `"BETA Nodes"`)
+   - `CATEGORY` string — use `"BETA Nodes"` for all nodes
    - The execution method itself
 
 2. At module level, export:
@@ -73,16 +73,18 @@ Every node file follows this pattern — **maintain it when adding new nodes**:
 ### Code Style
 - **No formatter/linter configured** — follow existing style
 - Snake_case for functions and variables, CamelCase for classes
-- Use `print()` with `[BETA Helper Nodes]` or similar prefix for debug/error logging
+- Use `print()` with `[NodeName]` prefix for error logging; gate debug prints behind a `show_debug` parameter
 - No type hints currently used — don't add them to unchanged code
 - Keep inline comments for complex logic
 
 ### Key Patterns
 - **Input validation**: Always validate and clamp user inputs (coordinates, indices, dimensions)
 - **Graceful degradation**: Return sensible defaults on error rather than crashing
-- **Multiple input formats**: Some ComfyUI types (e.g., AUDIO) come in different shapes — handle all variants (see `audio_saver.py` for an example)
-- **Round to multiples**: Dimensions for AI models often need rounding to 8 or 16
+- **Multiple input formats**: Some ComfyUI types (e.g., AUDIO) come in different shapes — handle all variants (see `audio_saver.py`)
+- **Round to multiples**: Dimensions for AI models often need rounding to configurable multiples (8, 16, 32, 64)
 - **Custom data types**: Use dictionaries for passing metadata between nodes (e.g., `BETA_CROPINFO`)
+- **Debug logging**: Use `show_debug` boolean input to gate verbose print statements (see `audio_saver.py`, `sharpness_clipper.py`)
+- **Status outputs**: Include status STRING outputs for nodes that can fail silently (see `indexed_lora_loader.py` `lora_status`)
 
 ### Frontend (JavaScript)
 - `js/betaHelperNodes.js` handles dynamic widget visibility for the Indexed LoRA Loader
@@ -93,31 +95,35 @@ Every node file follows this pattern — **maintain it when adding new nodes**:
 
 No formal test suite exists. Nodes are tested manually within ComfyUI workflows. When modifying nodes:
 
-1. Verify `INPUT_TYPES` and `RETURN_TYPES` are correct
+1. Verify `INPUT_TYPES` and `RETURN_TYPES` are correct and their tuples have matching lengths
 2. Ensure the node loads without import errors (`__init__.py` try-except will catch these)
 3. Test with ComfyUI by running a workflow that uses the node
+4. Adding new optional inputs or appending new outputs is non-breaking
+5. Removing/renaming inputs or changing output order is breaking
 
 ## Common Tasks
 
 ### Adding a new node
 1. Create a new `.py` file following the registration pattern above
-2. Add the import block to `__init__.py`
-3. Add any new dependencies to `requirements.txt`
-4. Update `readme.md` with node documentation
+2. Set `CATEGORY = "BETA Nodes"`
+3. Add the import block to `__init__.py`
+4. Add any new dependencies to `requirements.txt`
+5. Update `readme.md` with node documentation
 
 ### Modifying an existing node
 - Changing `INPUT_TYPES` or `RETURN_TYPES` can break existing workflows — be cautious
 - Adding optional inputs is safe; removing or renaming inputs is breaking
+- Appending new outputs to `RETURN_TYPES` is safe; reordering or removing is breaking
 
 ## Nodes Reference (10 total)
 
 | File | Node(s) | Purpose |
 |---|---|---|
 | `BETA_cropnodes.py` | BETACrop, BETAStitch | Crop/stitch video frame regions |
-| `BETA_scenedetect.py` | BETASceneDetect | Detect scene changes, split into segments |
-| `audio_saver.py` | SaveAudioAdvanced | Save audio in FLAC/WAV/MP3 formats |
-| `sharpness_clipper.py` | SharpestFrameClipper, SelectSharpestFrames | Analyze frame sharpness, select/clip frames |
-| `wan_calculator.py` | WANResolutionCalculator | Calculate optimal WAN model dimensions |
-| `load_text_node.py` | LoadTextFromIndex | Load text file from directory by index |
-| `indexed_lora_loader.py` | IndexedLoRALoader | Load LoRA from configurable 20-slot stack |
-| `text_line_count.py` | TextLineCount | Count lines in text input |
+| `BETA_scenedetect.py` | BETASceneDetect | Detect scene changes, split into segments (configurable fps, min scene length) |
+| `audio_saver.py` | SaveAudioAdvanced | Save audio in FLAC/WAV/MP3 formats (debug toggle, MP3 bitrate) |
+| `sharpness_clipper.py` | SharpestFrameClipper, SelectSharpestFrames | Analyze frame sharpness, select/clip frames (outputs sharpness score) |
+| `wan_calculator.py` | WANResolutionCalculator | Calculate optimal model dimensions (configurable rounding multiple) |
+| `load_text_node.py` | LoadTextFromIndex | Load text file by index (configurable extension, encoding, outputs file count) |
+| `indexed_lora_loader.py` | IndexedLoRALoader | Load LoRA from 20-slot stack (outputs load status) |
+| `text_line_count.py` | TextLineCount | Count lines in text input (optional empty line filtering) |

@@ -1,11 +1,10 @@
-import torch
 import math
 
 class WANResolutionCalculator:
     """
-    WAN Resolution Calculator - Calculates optimal model-friendly resolution 
+    WAN Resolution Calculator - Calculates optimal model-friendly resolution
     based on desired megapixel target and aspect ratio.
-    Outputs dimensions rounded to multiples of 16 for model compatibility.
+    Outputs dimensions rounded to a configurable multiple for model compatibility.
     """
     def __init__(self):
         pass
@@ -24,15 +23,16 @@ class WANResolutionCalculator:
             },
             "optional": {
                 "source_image": ("IMAGE",),
+                "rounding_multiple": ([8, 16, 32, 64], {"default": 16}),
             },
         }
 
     RETURN_TYPES = ("INT", "INT", "INT", "STRING")
     RETURN_NAMES = ("width", "height", "frame_count", "info")
     FUNCTION = "calculate_wan_resolution"
-    CATEGORY = "Burgstall Enabling The Awesomeness"
+    CATEGORY = "BETA Nodes"
 
-    def calculate_wan_resolution(self, frame_count, target_megapixels, use_custom_aspect_ratio, aspect_ratio_preset, custom_aspect_ratio, source_width, source_height, source_image=None):
+    def calculate_wan_resolution(self, frame_count, target_megapixels, use_custom_aspect_ratio, aspect_ratio_preset, custom_aspect_ratio, source_width, source_height, source_image=None, rounding_multiple=16):
         # Define aspect ratio presets
         aspect_ratios = {
             "16:9": 16/9,      # 1.778
@@ -46,52 +46,47 @@ class WANResolutionCalculator:
             "9:21": 9/21,      # 0.429
             "Custom": custom_aspect_ratio
         }
-        
+
         # Determine actual frame count and aspect ratio
         actual_frame_count = frame_count
-        
+
         # Determine aspect ratio to use - prioritize source image first
         if source_image is not None and not use_custom_aspect_ratio:
-            # Use source image aspect ratio and frame count when available and not overridden
             batch_size, height, width, channels = source_image.shape
             actual_frame_count = batch_size
             aspect_ratio = width / height
             aspect_ratio_source = "source image"
         elif not use_custom_aspect_ratio and source_width and source_height:
-            # Use provided width/height aspect ratio when not using custom override
             aspect_ratio = source_width / source_height
             aspect_ratio_source = f"source dimensions ({source_width}x{source_height})"
         elif use_custom_aspect_ratio:
-            # Use custom aspect ratio when override is enabled
             aspect_ratio = aspect_ratios[aspect_ratio_preset]
             aspect_ratio_source = f"custom ({aspect_ratio_preset})"
         else:
-            # Default to 16:9 when no other source is available
             aspect_ratio = aspect_ratios["16:9"]
             aspect_ratio_source = "default (16:9)"
-            
+
         # Calculate target pixels from megapixels
         target_pixels = target_megapixels * 1_000_000
-        
+
         # Calculate dimensions using aspect ratio
-        # For aspect ratio (width = height × aspect_ratio)
-        # pixels = width × height = height² × aspect_ratio
-        # Therefore: height = sqrt(pixels / aspect_ratio)
         height = math.sqrt(target_pixels / aspect_ratio)
         width = height * aspect_ratio
-        
-        # Round to multiples of 16 (model-friendly)
-        final_width = int(width // 16) * 16
-        final_height = int(height // 16) * 16
-        
+
+        # Round to configurable multiple (model-friendly)
+        m = rounding_multiple
+        final_width = int(width // m) * m
+        final_height = int(height // m) * m
+
         # Calculate actual megapixels after rounding
         actual_megapixels = (final_width * final_height) / 1_000_000
-        
+
         detailed_info = (f"Target: {target_megapixels:.1f}MP, "
                         f"Final: {final_width}x{final_height} ({actual_megapixels:.2f}MP), "
                         f"{actual_frame_count} frames, "
-                        f"Aspect: {aspect_ratio:.3f} ({aspect_ratio_source})")
-        
+                        f"Aspect: {aspect_ratio:.3f} ({aspect_ratio_source}), "
+                        f"Rounded to: {m}px")
+
         return (final_width, final_height, actual_frame_count, detailed_info)
 
 
@@ -103,4 +98,4 @@ NODE_CLASS_MAPPINGS = {
 # Node Display Name Mappings
 NODE_DISPLAY_NAME_MAPPINGS = {
     "WANResolutionCalculator": "WAN Resolution Calculator 📏 🅑🅔🅣🅐",
-} 
+}

@@ -34,8 +34,8 @@ class IndexedLoRALoader:
             "optional": optional_inputs
         }
 
-    RETURN_TYPES = ("MODEL", "CLIP", "STRING")
-    RETURN_NAMES = ("model", "clip", "trigger_word")
+    RETURN_TYPES = ("MODEL", "CLIP", "STRING", "STRING")
+    RETURN_NAMES = ("model", "clip", "trigger_word", "lora_status")
     FUNCTION = "load_indexed_lora"
     CATEGORY = "BETA Nodes"
 
@@ -43,14 +43,14 @@ class IndexedLoRALoader:
     def load_indexed_lora(self, model, clip, number_of_loras, index, strength_model, strength_clip, trigger_suffix, **kwargs):
         if not (1 <= index <= number_of_loras):
             print(f"[IndexedLoRALoader] Warning: Index {index} is out of the current LoRA range (1-{number_of_loras}). Returning original model and clip.")
-            return (model, clip, "")
+            return (model, clip, "", f"error: index {index} out of range (1-{number_of_loras})")
         
         lora_key = f"lora_{index}"
         selected_lora_name_from_widget = kwargs.get(lora_key)
 
         if not selected_lora_name_from_widget or selected_lora_name_from_widget.lower() == "none":
             print(f"[IndexedLoRALoader] Info: LoRA slot '{lora_key}' (index {index}) is not configured or set to 'none'. Returning original model and clip.")
-            return (model, clip, "")
+            return (model, clip, "", "skipped: slot not configured")
         
         # Pass the trigger_suffix to _extract_trigger_word
         trigger_word = self._extract_trigger_word(selected_lora_name_from_widget, trigger_suffix)
@@ -58,21 +58,21 @@ class IndexedLoRALoader:
         lora_path = get_full_path("loras", selected_lora_name_from_widget)
         if not lora_path:
             print(f"[IndexedLoRALoader] Error: LoRA file '{selected_lora_name_from_widget}' not found. Returning original model and clip.")
-            return (model, clip, trigger_word if trigger_word else "")
+            return (model, clip, trigger_word if trigger_word else "", f"error: file not found ({selected_lora_name_from_widget})")
 
         try:
             lora_data = comfy.utils.load_torch_file(lora_path, safe_load=True)
         except Exception as e:
             print(f"[IndexedLoRALoader] Error loading LoRA file '{selected_lora_name_from_widget}' from path '{lora_path}': {e}. Returning original model and clip.")
-            return (model, clip, trigger_word if trigger_word else "")
+            return (model, clip, trigger_word if trigger_word else "", f"error: failed to load ({e})")
 
         try:
             model_lora, clip_lora = comfy.sd.load_lora_for_models(model, clip, lora_data, strength_model, strength_clip)
         except Exception as e:
             print(f"[IndexedLoRALoader] Error applying LoRA '{selected_lora_name_from_widget}' to models: {e}. Returning original model and clip.")
-            return (model, clip, trigger_word if trigger_word else "")
-        
-        return (model_lora, clip_lora, trigger_word)
+            return (model, clip, trigger_word if trigger_word else "", f"error: failed to apply ({e})")
+
+        return (model_lora, clip_lora, trigger_word, f"loaded: {selected_lora_name_from_widget}")
     
     # Add 'suffix_pattern' to the method signature
     def _extract_trigger_word(self, lora_filename_from_widget, suffix_pattern="_lora"):

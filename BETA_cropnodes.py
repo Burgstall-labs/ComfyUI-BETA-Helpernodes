@@ -26,7 +26,7 @@ class BETACrop:
     RETURN_TYPES = ("IMAGE", "BETA_CROPINFO")
     RETURN_NAMES = ("cropped_frames", "crop_info")
     FUNCTION = "crop_video"
-    CATEGORY = "Burgstall Enabling The Awesomeness" # Updated Category
+    CATEGORY = "BETA Nodes" # Updated Category
 
     # Helper function to round up to the nearest multiple
     def _round_up_to_multiple(self, value, multiple):
@@ -123,7 +123,7 @@ class BETAStitch:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("stitched_frames",)
     FUNCTION = "stitch_video"
-    CATEGORY = "Burgstall Enabling The Awesomeness" # Updated Category
+    CATEGORY = "BETA Nodes" # Updated Category
 
     def stitch_video(self, original_frames, cropped_frames, crop_info):
         if cropped_frames is None or crop_info is None or original_frames is None:
